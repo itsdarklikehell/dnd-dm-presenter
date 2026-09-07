@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { useSortable } from '@vueuse/integrations/useSortable'
-import type { DisplayMode } from '~/stores/display'
 import type { GalleryImage } from '~/types/cast'
 
 const props = defineProps<{
   title: string
-  kind: DisplayMode & ('item' | 'location')
   images: GalleryImage[]
 }>()
 
@@ -14,9 +12,6 @@ const emit = defineEmits<{
   reorder: [orderedIds: string[]]
 }>()
 
-const displayStore = useDisplayStore()
-const { mode } = storeToRefs(displayStore)
-const { setMode } = displayStore
 const { hydrated } = storeToRefs(useHydrationStore())
 
 const sortableImages = ref<GalleryImage[]>([...props.images])
@@ -50,25 +45,6 @@ function confirmRemove(): void {
 
 <template>
   <section>
-    <div class="mb-3 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <h2 class="text-lg font-semibold text-highlighted">
-          {{ title }}
-        </h2>
-        <UButton
-          :color="mode === kind ? 'error' : 'neutral'"
-          :variant="mode === kind ? 'solid' : 'subtle'"
-          icon="i-lucide-monitor"
-          size="xs"
-          @click="setMode(kind)"
-        >
-          Live presenting
-        </UButton>
-      </div>
-
-      <slot name="add-button" />
-    </div>
-
     <div class="overflow-x-auto rounded-lg ring ring-default bg-default">
       <div
         v-if="!hydrated"
