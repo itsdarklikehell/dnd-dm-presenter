@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Item } from '~/types/cast'
+import type { Item } from '~/types/item'
 
 const props = defineProps<{ item?: Item | null }>()
 const open = defineModel<boolean>('open', { default: false })

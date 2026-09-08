@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Player } from '~/types/cast'
+import type { Player } from '~/types/player'
 
 const playersStore = usePlayersStore()
 const { players } = storeToRefs(playersStore)

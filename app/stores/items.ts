@@ -1,4 +1,4 @@
-import type { Item } from '~/types/cast'
+import type { Item } from '~/types/item'
 
 const ITEMS_KEY = 'dm-presenter:items'
 

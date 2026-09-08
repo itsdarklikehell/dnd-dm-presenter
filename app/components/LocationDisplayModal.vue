@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { Location } from '~/types/cast'
-import type { LocationView, Rect } from '~/types/fog'
+import type { Location } from '~/types/location'
+import type { LocationView, Rect } from '~/types/locationDisplay'
 
 const props = defineProps<{ location: Location | null }>()
 

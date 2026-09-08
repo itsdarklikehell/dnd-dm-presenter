@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useSortable } from '@vueuse/integrations/useSortable'
-import type { GalleryImage } from '~/types/cast'
+import type { GalleryImage } from '~/types/gallery'
 
 const props = defineProps<{
   title: string

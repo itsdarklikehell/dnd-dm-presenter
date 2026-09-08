@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { GalleryImage, Item } from '~/types/cast'
+import type { GalleryImage } from '~/types/gallery'
+import type { Item } from '~/types/item'
 
 const itemsStore = useItemsStore()
 const { items } = storeToRefs(itemsStore)

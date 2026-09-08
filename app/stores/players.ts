@@ -1,4 +1,4 @@
-import type { Player } from '~/types/cast'
+import type { Player } from '~/types/player'
 
 const PLAYERS_KEY = 'dm-presenter:players'
 

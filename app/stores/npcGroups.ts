@@ -1,4 +1,4 @@
-import type { NpcGroup } from '~/types/cast'
+import type { NpcGroup } from '~/types/npc'
 
 const NPC_GROUPS_KEY = 'dm-presenter:npc-groups'
 

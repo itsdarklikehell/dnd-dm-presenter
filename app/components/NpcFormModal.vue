@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Npc } from '~/types/cast'
+import type { Npc } from '~/types/npc'
 import type { GeneratedNpcImage } from '~/utils/leonardoImageGenerator'
 
 const props = defineProps<{ npc?: Npc | null }>()

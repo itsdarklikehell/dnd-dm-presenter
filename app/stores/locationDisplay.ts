@@ -1,4 +1,4 @@
-import type { LocationFogState, LocationView, Rect } from '~/types/fog'
+import type { LocationFogState, LocationView, Rect } from '~/types/locationDisplay'
 
 const LOCATION_DISPLAY_KEY = 'dm-presenter:location-display'
 

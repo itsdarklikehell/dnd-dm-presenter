@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useSortable } from '@vueuse/integrations/useSortable'
 import type Sortable from 'sortablejs'
-import type { Npc, Player } from '~/types/cast'
+import type { Npc } from '~/types/npc'
+import type { Player } from '~/types/player'
 
 const props = defineProps<{
   title: string

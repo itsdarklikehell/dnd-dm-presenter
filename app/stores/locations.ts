@@ -1,4 +1,4 @@
-import type { Location } from '~/types/cast'
+import type { Location } from '~/types/location'
 
 const LOCATIONS_KEY = 'dm-presenter:locations'
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Npc, NpcGroup } from '~/types/cast'
+import type { Npc, NpcGroup } from '~/types/npc'
 
 defineProps<{ group: NpcGroup | null, npcs: Npc[] }>()
 

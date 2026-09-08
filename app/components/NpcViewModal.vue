@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Npc } from '~/types/cast'
+import type { Npc } from '~/types/npc'
 
 defineProps<{ npc: Npc | null }>()
 

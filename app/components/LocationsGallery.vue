@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { GalleryImage } from '~/types/cast'
+import type { GalleryImage } from '~/types/gallery'
 
 const locationsStore = useLocationsStore()
 const { locations } = storeToRefs(locationsStore)

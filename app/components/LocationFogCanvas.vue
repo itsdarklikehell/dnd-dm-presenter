@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { LocationView, Rect } from '~/types/fog'
+import type { LocationView, Rect } from '~/types/locationDisplay'
 
 const props = defineProps<{
   image: string

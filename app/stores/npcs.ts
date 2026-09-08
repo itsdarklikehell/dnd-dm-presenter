@@ -1,4 +1,4 @@
-import type { Npc } from '~/types/cast'
+import type { Npc } from '~/types/npc'
 
 export const NPCS_KEY = 'dm-presenter:npcs'
 
