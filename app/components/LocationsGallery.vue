@@ -3,7 +3,7 @@ import type { GalleryImage } from '~/types/gallery'
 
 const locationsStore = useLocationsStore()
 const { locations } = storeToRefs(locationsStore)
-const { addLocation, removeLocation, reorderLocations } = locationsStore
+const { addLocation, reorderLocations } = locationsStore
 
 const locationDisplayStore = useLocationDisplayStore()
 const { isActive: isLocationActive, showLocation, hideLocation } = locationDisplayStore
@@ -74,8 +74,8 @@ const displayTarget = ref<GalleryImage | null>(null)
     <GalleryGrid
       title="Locations"
       :images="locations"
-      @remove="removeLocation"
       @reorder="reorderLocations"
+      @select="displayTarget = $event"
     >
       <template #overlay="{ entry }">
         <USwitch
@@ -87,17 +87,6 @@ const displayTarget = ref<GalleryImage | null>(null)
           aria-label="Toggle whether this location is displayed"
           @update:model-value="toggleLocationDisplay(entry.id)"
         />
-
-        <UButton
-          color="neutral"
-          variant="subtle"
-          icon="i-lucide-cloud-fog"
-          size="xs"
-          class="absolute left-1 top-9"
-          @click="displayTarget = entry"
-        >
-          Edit fog
-        </UButton>
       </template>
     </GalleryGrid>
 

@@ -4,11 +4,15 @@ import type { Item } from '~/types/item'
 const props = defineProps<{ item?: Item | null }>()
 const open = defineModel<boolean>('open', { default: false })
 
-const { addItem, updateItem } = useItemsStore()
+const { addItem, updateItem, removeItem } = useItemsStore()
 
 const form = reactive({ name: '', image: '' })
 
+const confirmingDelete = ref(false)
+
 watch(open, (isOpen) => {
+  confirmingDelete.value = false
+
   if (!isOpen) {
     return
   }
@@ -23,6 +27,14 @@ async function onImageFileChange(file: File | null | undefined): Promise<void> {
   }
 
   form.image = await convertImageFileToWebp(file)
+}
+
+function remove(): void {
+  if (props.item) {
+    removeItem(props.item.id)
+  }
+
+  open.value = false
 }
 
 function save(): void {
@@ -82,21 +94,56 @@ function save(): void {
     </template>
 
     <template #footer>
-      <div class="flex justify-end gap-2 w-full">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          @click="open = false"
-        >
-          Cancel
-        </UButton>
-        <UButton
-          color="primary"
-          :disabled="!form.image.trim()"
-          @click="save"
-        >
-          {{ item ? 'Save' : 'Add item' }}
-        </UButton>
+      <div class="flex items-center gap-2 w-full">
+        <template v-if="confirmingDelete">
+          <span class="text-sm text-muted">
+            Delete this item permanently?
+          </span>
+
+          <UButton
+            class="ml-auto"
+            color="neutral"
+            variant="ghost"
+            @click="confirmingDelete = false"
+          >
+            Cancel
+          </UButton>
+
+          <UButton
+            color="error"
+            @click="remove"
+          >
+            Delete
+          </UButton>
+        </template>
+
+        <template v-else>
+          <UButton
+            v-if="item"
+            color="error"
+            variant="subtle"
+            icon="i-lucide-trash-2"
+            @click="confirmingDelete = true"
+          >
+            Delete
+          </UButton>
+
+          <UButton
+            class="ml-auto"
+            color="neutral"
+            variant="ghost"
+            @click="open = false"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            color="primary"
+            :disabled="!form.image.trim()"
+            @click="save"
+          >
+            {{ item ? 'Save' : 'Add item' }}
+          </UButton>
+        </template>
       </div>
     </template>
   </UModal>

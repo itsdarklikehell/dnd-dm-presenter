@@ -11,6 +11,10 @@ const emit = defineEmits<{
 const locationDisplayStore = useLocationDisplayStore()
 const { getFogState, getView, setView, addFog, clearFog, revealRect } = locationDisplayStore
 
+const { removeLocation } = useLocationsStore()
+
+const confirmingDelete = ref(false)
+
 const stageEl = ref<HTMLElement | null>(null)
 
 const fogState = computed(() => props.location ? getFogState(props.location.id) : { fogEnabled: false, revealedRects: [] })
@@ -21,6 +25,8 @@ function focusStage(): void {
 }
 
 watch(() => props.location, async (location) => {
+  confirmingDelete.value = false
+
   if (!location) {
     return
   }
@@ -43,6 +49,14 @@ function onReveal(rect: Rect): void {
   if (props.location) {
     revealRect(props.location.id, rect)
   }
+}
+
+function onDelete(): void {
+  if (props.location) {
+    removeLocation(props.location.id)
+  }
+
+  emit('close')
 }
 
 function onViewChange(next: LocationView): void {
@@ -105,6 +119,42 @@ function onViewChange(next: LocationView): void {
             @update:view="onViewChange"
           />
         </div>
+      </div>
+    </template>
+
+    <template #footer>
+      <div class="flex w-full items-center gap-2">
+        <template v-if="confirmingDelete">
+          <span class="text-sm text-muted">
+            Delete this location permanently?
+          </span>
+
+          <UButton
+            class="ml-auto"
+            color="neutral"
+            variant="ghost"
+            @click="confirmingDelete = false"
+          >
+            Cancel
+          </UButton>
+
+          <UButton
+            color="error"
+            @click="onDelete"
+          >
+            Delete
+          </UButton>
+        </template>
+
+        <UButton
+          v-else
+          color="error"
+          variant="subtle"
+          icon="i-lucide-trash-2"
+          @click="confirmingDelete = true"
+        >
+          Delete location
+        </UButton>
       </div>
     </template>
   </UModal>

@@ -8,7 +8,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  remove: [id: string]
+  select: [entry: GalleryImage]
   reorder: [orderedIds: string[]]
 }>()
 
@@ -31,16 +31,6 @@ useSortable(gridEl, sortableImages, {
     emit('reorder', sortableImages.value.map(entry => entry.id))
   }
 })
-
-const deleteTarget = ref<GalleryImage | null>(null)
-
-function confirmRemove(): void {
-  if (deleteTarget.value) {
-    emit('remove', deleteTarget.value.id)
-  }
-
-  deleteTarget.value = null
-}
 </script>
 
 <template>
@@ -70,25 +60,22 @@ function confirmRemove(): void {
           :key="entry.id"
           class="group relative aspect-square overflow-hidden rounded-lg ring ring-default"
         >
-          <img
-            :src="entry.image"
-            alt=""
-            class="h-full w-full object-cover"
+          <button
+            type="button"
+            class="block h-full w-full cursor-pointer"
+            :aria-label="`Open ${entry.name || title.toLowerCase()}`"
+            @click="emit('select', entry)"
           >
+            <img
+              :src="entry.image"
+              alt=""
+              class="h-full w-full object-cover transition-opacity group-hover:opacity-80"
+            >
+          </button>
 
           <slot
             name="overlay"
             :entry="entry"
-          />
-
-          <UButton
-            icon="i-lucide-trash-2"
-            color="error"
-            variant="solid"
-            size="xs"
-            class="absolute right-1 top-1 opacity-0 transition-opacity group-hover:opacity-100"
-            :aria-label="`Delete ${title.toLowerCase()} image`"
-            @click="deleteTarget = entry"
           />
 
           <div
@@ -103,30 +90,5 @@ function confirmRemove(): void {
         </div>
       </div>
     </div>
-
-    <UModal
-      :open="deleteTarget !== null"
-      title="Remove image?"
-      :description="`This image will be removed from ${title.toLowerCase()}. This cannot be undone.`"
-      @update:open="value => { if (!value) deleteTarget = null }"
-    >
-      <template #footer>
-        <div class="flex justify-end gap-2 w-full">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            @click="deleteTarget = null"
-          >
-            Cancel
-          </UButton>
-          <UButton
-            color="error"
-            @click="confirmRemove"
-          >
-            Remove
-          </UButton>
-        </div>
-      </template>
-    </UModal>
   </section>
 </template>

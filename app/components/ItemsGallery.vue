@@ -4,7 +4,7 @@ import type { Item } from '~/types/item'
 
 const itemsStore = useItemsStore()
 const { items } = storeToRefs(itemsStore)
-const { removeItem, reorderItems } = itemsStore
+const { reorderItems } = itemsStore
 
 const displayStore = useDisplayStore()
 const { mode } = storeToRefs(displayStore)
@@ -55,8 +55,8 @@ function openEdit(entry: GalleryImage): void {
     <GalleryGrid
       title="Items"
       :images="items"
-      @remove="removeItem"
       @reorder="reorderItems"
+      @select="openEdit"
     >
       <template #overlay="{ entry }">
         <USwitch
@@ -67,16 +67,6 @@ function openEdit(entry: GalleryImage): void {
           class="absolute left-1 top-1 rounded bg-black/50 px-1.5 py-1"
           aria-label="Toggle whether this item is displayed"
           @update:model-value="toggleDisplay('item', entry.id)"
-        />
-
-        <UButton
-          icon="i-lucide-pencil"
-          color="neutral"
-          variant="solid"
-          size="xs"
-          class="absolute right-1 top-9 opacity-0 transition-opacity group-hover:opacity-100"
-          aria-label="Edit item name"
-          @click="openEdit(entry)"
         />
 
         <div
