@@ -18,8 +18,7 @@ const editor = useEditor({
   },
   onUpdate: ({ editor: instance }) => {
     modelValue.value = instance.getHTML()
-  },
-  immediatelyRender: false
+  }
 })
 
 watch(modelValue, (value) => {

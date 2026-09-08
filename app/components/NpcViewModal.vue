@@ -64,11 +64,13 @@ const emit = defineEmits<{
               </UBadge>
             </div>
 
+            <!-- eslint-disable vue/no-v-html -- description is TipTap output stored locally on this device -->
             <div
               v-if="npc.description"
               class="rich-text-content text-sm text-muted"
               v-html="npc.description"
             />
+            <!-- eslint-enable vue/no-v-html -->
             <p
               v-else
               class="text-sm text-muted"
