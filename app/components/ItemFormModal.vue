@@ -26,7 +26,7 @@ async function onImageFileChange(file: File | null | undefined): Promise<void> {
     return
   }
 
-  form.image = await convertImageFileToWebp(file)
+  form.image = await putImageBlob(await convertImageFileToWebpBlob(file, PORTRAIT_IMAGE_ENCODING))
 }
 
 function remove(): void {
@@ -76,12 +76,10 @@ function save(): void {
 
         <UFormField label="Image">
           <div class="flex items-center gap-3">
-            <img
-              v-if="form.image"
-              :src="form.image"
+            <StoredImage
+              :image="form.image"
               class="size-12 rounded object-cover"
-              alt=""
-            >
+            />
             <UFileUpload
               accept="image/*"
               label="Choose image"

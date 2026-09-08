@@ -66,11 +66,11 @@ useSortable(gridEl, sortableImages, {
             :aria-label="`Open ${entry.name || title.toLowerCase()}`"
             @click="emit('select', entry)"
           >
-            <img
-              :src="entry.image"
-              alt=""
+            <StoredImage
+              :image="entry.image"
+              loading="lazy"
               class="h-full w-full object-cover transition-opacity group-hover:opacity-80"
-            >
+            />
           </button>
 
           <slot

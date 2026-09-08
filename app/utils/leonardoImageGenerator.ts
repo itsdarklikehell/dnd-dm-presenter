@@ -57,7 +57,9 @@ export async function generateLeonardoNpcImage(apiKey: string, promptInput: NpcI
     throw new Error(`Failed to download generated image (${imageResponse.status})`)
   }
 
-  return { image: await convertImageFileToWebp(await imageResponse.blob()), leonardoImageId: generatedImage.id }
+  const webp = await convertImageFileToWebpBlob(await imageResponse.blob(), PORTRAIT_IMAGE_ENCODING)
+
+  return { image: await putImageBlob(webp), leonardoImageId: generatedImage.id }
 }
 
 function buildPrompt({ species, gender, age, role, description, style }: NpcImagePrompt): string {

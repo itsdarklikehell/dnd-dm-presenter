@@ -1,11 +1,15 @@
 import { strToU8, unzipSync, zipSync } from 'fflate'
-import { NPCS_KEY, isStoredNpcArray, type StoredNpc } from '~/stores/npcs'
+import { NPCS_KEY } from '~/stores/npcs'
+import { ITEMS_KEY } from '~/stores/items'
+import { LOCATIONS_KEY } from '~/stores/locations'
 import { BACKUP_KEY, serializeLastSavedAt } from '~/stores/backup'
 import { LEONARDO_API_KEY_STORAGE_KEY } from '~/composables/useLeonardoApiKey'
 
 const STORAGE_PREFIX = 'dm-presenter:'
 const IMAGES_DIR = 'images/'
 const STATE_FILE = 'state.json'
+
+const IMAGE_STORE_KEYS = [NPCS_KEY, ITEMS_KEY, LOCATIONS_KEY]
 
 const EXT_TO_MIME: Record<string, string> = {
   png: 'image/png',
@@ -19,29 +23,9 @@ const EXT_TO_MIME: Record<string, string> = {
 export function useStateBackup() {
   const backupStore = useBackupStore()
 
-  function exportState(): void {
+  async function exportState(): Promise<void> {
     const entries = readPrefixedEntries()
-    const imageFiles: Record<string, Uint8Array> = {}
-
-    const npcs = readNpcs(entries)
-
-    if (npcs) {
-      const extracted = npcs.map((npc) => {
-        const image = extractImage(npc)
-
-        if (!image) {
-          return npc
-        }
-
-        const path = `${IMAGES_DIR}${npc.id}.${image.ext}`
-
-        imageFiles[path] = image.bytes
-
-        return { ...npc, image: path }
-      })
-
-      entries[NPCS_KEY] = JSON.stringify(extracted)
-    }
+    const imageFiles = await readImageFiles()
 
     const zipped = zipSync({
       [STATE_FILE]: strToU8(JSON.stringify(entries, null, 2)),
@@ -61,7 +45,8 @@ export function useStateBackup() {
     backupStore.markSaved(new Date().toISOString())
   }
 
-  function clearState(): void {
+  async function clearState(): Promise<void> {
+    await clearImageBlobs()
     removeSessionDataKeys()
     window.localStorage.removeItem(BACKUP_KEY)
     window.location.reload()
@@ -81,29 +66,9 @@ export function useStateBackup() {
       throw new Error('Invalid state file')
     }
 
-    const npcsRaw = parsed[NPCS_KEY]
-
-    if (npcsRaw) {
-      const npcs: unknown = JSON.parse(npcsRaw)
-
-      if (isStoredNpcArray(npcs)) {
-        const restored = npcs.map((npc) => {
-          if (!npc.image.startsWith(IMAGES_DIR)) {
-            return npc
-          }
-
-          const bytes = files[npc.image]
-
-          if (!bytes) {
-            return npc
-          }
-
-          return { ...npc, image: bytesToDataUri(bytes, mimeForPath(npc.image)) }
-        })
-
-        parsed[NPCS_KEY] = JSON.stringify(restored)
-      }
-    }
+    await clearImageBlobs()
+    await restoreImageBlobs(files)
+    await rewriteLegacyImageFields(parsed)
 
     removeSessionDataKeys()
 
@@ -145,28 +110,88 @@ function readPrefixedEntries(): Record<string, string> {
   return entries
 }
 
-function readNpcs(entries: Record<string, string>): StoredNpc[] | null {
-  const raw = entries[NPCS_KEY]
+async function readImageFiles(): Promise<Record<string, Uint8Array>> {
+  const files: Record<string, Uint8Array> = {}
 
-  if (!raw) {
-    return null
+  for (const ref of await listImageRefs()) {
+    const blob = await getImageBlob(ref)
+
+    if (!blob) {
+      continue
+    }
+
+    files[`${IMAGES_DIR}${imageIdFromRef(ref)}.${extForMime(blob.type)}`] = new Uint8Array(await blob.arrayBuffer())
   }
 
-  const parsed: unknown = JSON.parse(raw)
-
-  return isStoredNpcArray(parsed) ? parsed : null
+  return files
 }
 
-function extractImage(npc: StoredNpc): { bytes: Uint8Array, ext: string } | null {
-  const match = /^data:image\/([a-z0-9+]+);base64,(.+)$/i.exec(npc.image)
+async function restoreImageBlobs(files: Record<string, Uint8Array>): Promise<void> {
+  for (const [path, bytes] of Object.entries(files)) {
+    const id = imageIdFromPath(path)
 
-  if (!match) {
+    if (!id) {
+      continue
+    }
+
+    await putImageBlobAtRef(imageRefFor(id), bytesToBlob(bytes, mimeForPath(path)))
+  }
+}
+
+// Zips written before images moved to IndexedDB hold either an images/<id> path or an inline data URI
+// in the entry's image field; both become references to a stored blob.
+async function rewriteLegacyImageFields(entries: Record<string, string>): Promise<void> {
+  for (const key of IMAGE_STORE_KEYS) {
+    const raw = entries[key]
+
+    if (!raw) {
+      continue
+    }
+
+    const parsed: unknown = JSON.parse(raw)
+
+    if (!Array.isArray(parsed)) {
+      continue
+    }
+
+    const rewritten = []
+
+    for (const entry of parsed) {
+      rewritten.push(isImageOwner(entry) ? { ...entry, image: await imageReferenceFor(entry.image) } : entry)
+    }
+
+    entries[key] = JSON.stringify(rewritten)
+  }
+}
+
+async function imageReferenceFor(image: string): Promise<string> {
+  const zippedId = imageIdFromPath(image)
+
+  if (zippedId) {
+    return imageRefFor(zippedId)
+  }
+
+  if (!isLegacyDataUri(image)) {
+    return image
+  }
+
+  return await putImageBlob(await (await fetch(image)).blob())
+}
+
+function isImageOwner(value: unknown): value is ImageOwner {
+  return isRecord(value) && typeof value.image === 'string'
+}
+
+function imageIdFromPath(path: string): string | null {
+  if (!path.startsWith(IMAGES_DIR)) {
     return null
   }
 
-  const [, subtype, base64] = match as unknown as [string, string, string]
+  return path.slice(IMAGES_DIR.length).replace(/\.[^.]+$/, '') || null
+}
 
-  return { bytes: base64ToBytes(base64), ext: subtype === 'svg+xml' ? 'svg' : subtype }
+function extForMime(mime: string): string {
+  return Object.entries(EXT_TO_MIME).find(([, value]) => value === mime)?.[0] ?? 'webp'
 }
 
 function mimeForPath(path: string): string {
@@ -175,29 +200,8 @@ function mimeForPath(path: string): string {
   return EXT_TO_MIME[ext] ?? 'application/octet-stream'
 }
 
-function bytesToDataUri(bytes: Uint8Array, mime: string): string {
-  return `data:${mime};base64,${bytesToBase64(bytes)}`
-}
-
-function base64ToBytes(base64: string): Uint8Array {
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i)
-  }
-
-  return bytes
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = ''
-
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte)
-  }
-
-  return btoa(binary)
+function bytesToBlob(bytes: Uint8Array, mime: string): Blob {
+  return new Blob([bytes.slice().buffer as ArrayBuffer], { type: mime })
 }
 
 function isStateData(value: unknown): value is Record<string, string> {

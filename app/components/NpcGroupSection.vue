@@ -147,8 +147,8 @@ function pointsClass(value: number): string {
             :aria-label="`View info for ${npc.name}`"
             @click="emit('view', npc)"
           >
-            <UAvatar
-              :src="npc.image"
+            <StoredAvatar
+              :image="npc.image"
               :alt="npc.name"
               size="lg"
               class="shrink-0"

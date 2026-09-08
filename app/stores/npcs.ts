@@ -12,11 +12,19 @@ export const useNpcsStore = defineStore('npcs', () => {
   }
 
   function updateNpc(id: string, patch: Partial<Omit<Npc, 'id'>>): void {
+    const replaced = replacedImages(npcs.value, id, patch.image)
+
     npcs.value = npcs.value.map(npc => npc.id === id ? { ...npc, ...patch } : npc)
+
+    void releaseImages(replaced)
   }
 
   function removeNpc(id: string): void {
+    const removed = npcs.value.filter(npc => npc.id === id)
+
     npcs.value = npcs.value.filter(npc => npc.id !== id)
+
+    void releaseImages(removed)
   }
 
   function isFlagSet(id: string, flag: NpcFlag): boolean {

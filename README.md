@@ -52,9 +52,17 @@ All the data that you enter is only available within that browser on that machin
 You can store everything into a zip file.
 This way you can prepare for multiple sessions or reuse the data on a different machine.
 
+Images (NPC portraits, item pictures and location maps) live in the browser's IndexedDB rather than in
+`localStorage`, so a session can hold high-resolution location maps that stay sharp when you zoom in.
+A save zip carries those images as files alongside `state.json`, so it stays self-contained.
+
+> **Upgrading from a version before this change:** export a save zip *first*, then load it again after
+> updating. Images stored the old way are only converted when a zip is imported; nothing converts them
+> in place.
+
 The **trash** button next to save and load wipes every NPC, item, location, player, group and session event from
-this browser. It asks for confirmation first, and that confirmation tells you when you last saved to a zip, so you
-can judge how much is about to be lost. Your Leonardo API key and style prompt survive the wipe, since those are
+this browser, images included. It asks for confirmation first, and that confirmation tells you when you last saved
+to a zip, so you can judge how much is about to be lost. Your Leonardo API key and style prompt survive the wipe, since those are
 per-machine settings rather than session data.
 
 # Development

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { LocationView, Rect } from '~/types/locationDisplay'
 
+// `image` is a resolved, renderable src — the parent resolves the stored image reference.
 const props = defineProps<{
   image: string
   revealedRects: Rect[]

@@ -1,7 +1,20 @@
-export async function convertImageFileToWebp(
-  file: File | Blob,
-  { maxDimension = 1024, quality = 0.8 }: { maxDimension?: number, quality?: number } = {}
-): Promise<string> {
+export interface ImageEncoding {
+  maxDimension: number
+  quality: number
+}
+
+export const PORTRAIT_IMAGE_ENCODING: ImageEncoding = { maxDimension: 1024, quality: 0.8 }
+
+// Location maps are zoomed into up to MAX_SCALE in LocationFogCanvas, so they keep far more pixels than a portrait.
+export const LOCATION_IMAGE_ENCODING: ImageEncoding = { maxDimension: 4096, quality: 0.85 }
+
+export async function convertImageFileToWebpBlob(file: File | Blob, { maxDimension, quality }: ImageEncoding): Promise<Blob> {
+  const canvas = await drawScaledImage(file, maxDimension)
+
+  return await canvasToWebpBlob(canvas, quality)
+}
+
+async function drawScaledImage(file: File | Blob, maxDimension: number): Promise<HTMLCanvasElement> {
   const objectUrl = URL.createObjectURL(file)
 
   try {
@@ -20,10 +33,21 @@ export async function convertImageFileToWebp(
     }
 
     ctx.drawImage(img, 0, 0, width, height)
-    return canvas.toDataURL('image/webp', quality)
+
+    return canvas
   } finally {
     URL.revokeObjectURL(objectUrl)
   }
+}
+
+function canvasToWebpBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      blob => blob ? resolve(blob) : reject(new Error('Failed to encode the image as webp')),
+      'image/webp',
+      quality
+    )
+  })
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {

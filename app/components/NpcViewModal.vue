@@ -23,8 +23,8 @@ const emit = defineEmits<{
         class="flex flex-col gap-4"
       >
         <div class="flex items-start gap-4">
-          <UAvatar
-            :src="npc.image"
+          <StoredAvatar
+            :image="npc.image"
             :alt="npc.name"
             size="3xl"
             class="shrink-0"
