@@ -1,6 +1,6 @@
 import type { Location } from '~/types/location'
 
-const LOCATIONS_KEY = 'dm-presenter:locations'
+export const LOCATIONS_KEY = 'dm-presenter:locations'
 
 export const useLocationsStore = defineStore('locations', () => {
   const locations = ref<Location[]>([])

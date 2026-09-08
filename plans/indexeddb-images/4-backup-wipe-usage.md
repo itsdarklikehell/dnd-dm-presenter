@@ -32,13 +32,13 @@ Export becomes generic over "every ref referenced by any store" instead of NPC-s
   truth, orphans are swept on boot anyway, and it avoids re-parsing three stores' JSON here.
 - `importState`:
   1. Unzip, validate `state.json` as today.
-  2. Keep the existing legacy path — an old zip has `images/<npcId>.<ext>` **in the npc's `image`
-     field**, so continue rewriting those into data URIs (`:88-105`). The phase-2 migration then moves
-     them into IndexedDB on the reload. This is what makes pre-migration backups restorable, so do not
-     delete it.
-  3. New path: `await clearImageBlobs()`, then for every `images/<id>.<ext>` entry in the zip
-     **that was not consumed by the legacy path**, `putImageBlobAtRef(imageRefFor(id), new Blob([bytes],
-     { type: mimeForPath(path) }))`. Refs inside `state.json` already match these ids.
+  2. `await clearImageBlobs()`, then write every `images/<id>.<ext>` entry in the zip to
+     `putImageBlobAtRef(imageRefFor(id), ...)`. References inside `state.json` already match those ids.
+  3. Rewrite legacy image fields, since there is no boot-time migration to do it: for each of the three
+     store keys, an entry whose `image` is an `images/<id>.<ext>` path becomes `idb:<id>` (the blob was
+     already written in step 2), and an entry whose `image` is an inline data URI gets its bytes stored
+     and the field replaced with the new reference. This is what makes a pre-migration save file
+     restorable, and it is the only conversion path in the app.
   4. `removeSessionDataKeys()`, write keys, `markSaved`, reload — unchanged.
 - `clearState` becomes `async`: `await clearImageBlobs()` before `removeSessionDataKeys()`, so a wipe
   does not leave every portrait sitting in IndexedDB forever.

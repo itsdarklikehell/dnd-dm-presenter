@@ -1,99 +1,84 @@
-# Phase 2 — Stores hold refs; existing data URIs migrate
+# Phase 2 — Stores hold refs; blobs are released and swept
 
 ## Goal
 
-Make `npcs`, `items` and `locations` treat `image` as a blob reference, migrate every existing `data:`
-URI in `localStorage` into IndexedDB on first load, and delete blobs when their owning entry is removed
-or its image replaced.
+Make `npcs`, `items` and `locations` treat `image` as a blob reference, delete blobs when their owning
+entry is removed or its image replaced, and sweep blobs nothing points at any more.
 
 ## Why
 
-This is the phase that actually frees the `localStorage` budget, and the one that touches persisted user
-data — existing NPC portraits must survive. It is deliberately separate from the render swap (phase 3)
-so that after this phase the app still renders correctly through `useImageSource`'s `data:` passthrough
-if migration is incomplete, and a failure is recoverable by reverting one commit.
+This is what frees the `localStorage` budget. It deliberately lands before the render swap (phase 3) so
+that a failure is one commit to revert.
+
+**No boot-time migration.** Existing data URIs are not converted on load. Users are told to export a
+save zip before the update, and the import path (phase 4) converts the legacy images in that zip into
+blobs. That trades a one-time manual step for dropping the whole migration machinery: no cross-tab lock,
+no status flag in `localStorage`, no partial-migration states to reason about.
 
 ## Files
 
 ### New — `app/utils/imageOwnership.ts`
 
-Deleting a blob when its owner disappears has to happen in three stores, so the walk lives in one place.
+Deleting a blob when its owner disappears happens in three stores, so the walk lives in one place.
 
 ```ts
-export interface ImageOwner { image: string }
+export interface ImageOwner {
+  image: string
+}
 
 export async function releaseImages(entries: ImageOwner[]): Promise<void>
+export function replacedImages<T extends { id: string, image: string }>(
+  entries: T[],
+  id: string,
+  nextImage: string | undefined
+): ImageOwner[]
 ```
 
-Deletes every `idb:` ref in `entries` (ignores legacy `data:` values, which own nothing). Store actions
-call it with the entries they are about to drop.
+`releaseImages` deletes every `idb:` ref it is given and ignores anything else, so a leftover data URI
+owns nothing and is skipped. `replacedImages` reports the old image of an entry whose image is about to
+change, so an edit does not leak the blob it replaces.
 
 ### Changed — `app/stores/npcs.ts`, `app/stores/items.ts`, `app/stores/locations.ts`
 
-Type guards are unchanged (`image` is still `string`). Only deletion changes:
+Type guards are unchanged (`image` is still a `string`). Only deletion changes:
 
 - `removeNpc` / `removeItem` / `removeLocation` — capture the entry before filtering, then
-  `void releaseImages([entry])`.
-- `updateNpc` / `updateItem` — when the patch carries a different non-empty `image`, release the old ref.
-- `toggleAwayForAll`, `reorder*`, flag helpers — untouched.
+  `void releaseImages(removed)`.
+- `updateNpc` / `updateItem` — release the previous image when the patch carries a different one.
+- `toggleAwayForAll`, `reorder*` and the flag helpers are untouched.
 
 Fire-and-forget (`void`) rather than making the actions async: the store mutation is synchronous state
-the UI depends on, and a failed blob delete is a leaked blob, not a broken app. Orphans are swept below.
+the UI depends on, and a failed blob delete leaks a blob rather than breaking the app. The sweep below
+is the backstop.
 
-### New — `app/plugins/image-migration.client.ts`
+### New — `app/plugins/image-cleanup.client.ts`
 
-Runs after hydration, converts legacy data URIs, then sweeps orphans.
+On `app:mounted` (so the persisted stores have been read), collect every `idb:` ref held by the three
+stores, list the blob store, and delete what is not referenced.
 
-Order of operations:
+This is not just crash recovery: phase 3 writes a blob as soon as a file is chosen in a form, so
+cancelling that form leaves an unreferenced blob, and this is what collects it.
 
-1. Wait for `useHydrationStore` to report initial hydration complete. This is critical — running before
-   `localStorage` is read means walking empty stores, and the orphan sweep would delete every blob.
-2. Take a migration lock in `localStorage` under `dm-presenter:image-migration` holding a status object
-   (`{ startedAt, completedAt }`). If another tab holds an unfinished lock younger than ~30s, skip both
-   migration and the sweep this load. Two tabs opening together is normal for this app (`/` plus
-   `/present`), and both migrating the same data URI would write two blobs and have the losing tab's
-   store patch overwritten.
-3. For each store, for each entry whose `image` `isLegacyDataUri`: decode base64 → `Blob` →
-   `putImageBlob` → patch the entry's `image` to the returned ref via the store's own update action
-   (`updateNpc` / `updateItem`, and a new `replaceLocationImage(id, image)` in the locations store,
-   which currently has no update action).
-4. Orphan sweep: `listImageRefs()` minus every ref referenced by the three stores → `deleteImageBlob`.
-   This catches blobs orphaned by a crash mid-migration or a lost cross-tab race.
-5. Mark the lock completed.
-
-Decoding base64 in the browser: `fetch(dataUri).then(r => r.blob())` is the shortest correct path and
-avoids a manual `atob`/`Uint8Array` loop.
-
-Note the migration writes each converted entry back through the store, so
-`pinia-plugin-persistedstate` rewrites `localStorage` and the `storage` event syncs the other tab
-(`app/plugins/storage-sync.client.ts`). The freed space appears immediately.
+The sweep must never run before the stores are hydrated — on empty stores it would delete every blob.
+`app:mounted` fires after `app.vue`'s `onMounted`, which is also where `useHydrationStore` is marked, so
+the ordering is the same one the rest of the app gates on.
 
 ## Risks
 
-- **Data loss on a failed conversion.** If `putImageBlob` throws for one entry, leave that entry's
-  `data:` URI intact and continue with the rest. Never patch the field before the blob write resolves.
-- **Quota rejection.** IndexedDB can reject on a full disk. Catch per entry; an unmigrated entry still
-  renders via the passthrough.
-- **Migration is one-way.** Reverting the code after migrating leaves stores holding `idb:` refs that
-  old code renders as broken images. The recovery path is a backup zip exported *before* upgrading, so
-  say so in the phase-4 release note.
+- **Existing data URIs are left in place.** Nothing converts them, so a user who skips the export keeps
+  a working app (the phase-1 resolver passes `data:` through) but gets none of the space back, and a
+  later export writes those URIs inline in `state.json`. The release note has to say: export first.
+- **A blob written but not yet referenced can be swept by another tab's boot.** Uploading in one window
+  while opening a second one is the case; the pending image would vanish from the open form. Rare and
+  recoverable by re-uploading.
 
 ## Verification
 
-- Before starting, `pnpm dev` on the current build and export a backup zip (Save to zip in the nav) as
-  a rollback artifact.
-- With existing NPCs/items/locations in `localStorage`, load `/`:
-  - DevTools → Application → Local Storage: `dm-presenter:npcs` no longer contains `data:image`, and the
-    nav's storage figure drops sharply.
-  - DevTools → Application → IndexedDB → `dm-presenter` → `images`: one record per image.
-  - Every portrait and map still renders (via `useImageSource`, already in place from phase 1).
-- Reload twice more: no new IndexedDB records appear (migration is idempotent), no console errors.
+- With entries in the stores, load `/`:
+  - DevTools → Application → IndexedDB → `dm-presenter` → `images` keeps every referenced blob.
+  - No console errors.
+- Seed an unreferenced blob by hand into `images`, reload → it is gone, referenced blobs remain.
 - Delete an NPC that has a portrait → its `images` record disappears.
-- Edit an NPC and upload a replacement portrait (still the old data-URI upload path until phase 3, so
-  expect a new `data:` URI here; re-verify after phase 3) → old ref released.
-- Open `/` and `/present` in two windows simultaneously with unmigrated data: exactly one migration runs,
-  the other tab picks up the refs through the `storage` event, and the `images` count matches the number
-  of images.
 - `pnpm lint`, `pnpm typecheck`.
 
 ## Commit

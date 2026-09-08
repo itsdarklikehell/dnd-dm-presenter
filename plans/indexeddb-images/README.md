@@ -19,7 +19,7 @@ whose value becomes an `idb:<uuid>` reference. Zoom ceiling stays at 8x.
 | # | Plan | Scope |
 |---|---|---|
 | 1 | [1-idb-layer.md](1-idb-layer.md) | IndexedDB store, ref format, resolver composable, `StoredImage`, Blob encoder. No behaviour change. |
-| 2 | [2-store-migration.md](2-store-migration.md) | Stores hold refs; existing data URIs migrate on boot; blob deletion + orphan sweep. |
+| 2 | [2-store-migration.md](2-store-migration.md) | Stores hold refs; blob deletion on remove/replace + boot-time orphan sweep. No boot migration. |
 | 3 | [3-components.md](3-components.md) | Uploads and Leonardo write blobs; all consumers render refs. |
 | 4 | [4-backup-wipe-usage.md](4-backup-wipe-usage.md) | Backup zip carries blobs, clear-all wipes them, storage meter uses `storage.estimate()`. |
 | 5 | [5-high-res-locations.md](5-high-res-locations.md) | Location maps encode at 4096px / q0.85. |
@@ -29,5 +29,6 @@ so backups would carry refs without bytes. Phases 3 and 4 must land together or 
 
 ## Before starting
 
-Export a backup zip from the current build. It is the only rollback path once phase 2 rewrites
-`localStorage` with refs.
+Export a backup zip from the current build. There is no boot-time migration by design: existing data
+URIs are converted only when that zip is imported, so the save file is both the rollback path and the
+upgrade path. Tell users to export before the release.

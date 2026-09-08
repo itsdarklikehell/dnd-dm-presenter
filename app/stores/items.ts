@@ -1,6 +1,6 @@
 import type { Item } from '~/types/item'
 
-const ITEMS_KEY = 'dm-presenter:items'
+export const ITEMS_KEY = 'dm-presenter:items'
 
 export const useItemsStore = defineStore('items', () => {
   const items = ref<Item[]>([])
