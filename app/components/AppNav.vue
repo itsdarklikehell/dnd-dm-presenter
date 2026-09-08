@@ -8,9 +8,11 @@ const items = [
   { label: 'Admin', icon: 'i-lucide-settings', to: '/admin' }
 ]
 
-const { exportState, importState } = useStateBackup()
+const { exportState, importState, clearState } = useStateBackup()
+const { lastSavedAt } = storeToRefs(useBackupStore())
 
 const fileInput = ref<HTMLInputElement>()
+const clearModalOpen = ref(false)
 
 function triggerLoad(): void {
   fileInput.value?.click()
@@ -73,6 +75,13 @@ onBeforeUnmount(() => {
           title="Load state from zip"
           @click="triggerLoad"
         />
+        <UButton
+          icon="i-lucide-trash-2"
+          color="neutral"
+          variant="ghost"
+          title="Clear all data"
+          @click="clearModalOpen = true"
+        />
         <input
           ref="fileInput"
           type="file"
@@ -82,5 +91,12 @@ onBeforeUnmount(() => {
         >
       </div>
     </UContainer>
+
+    <ClearStateModal
+      :open="clearModalOpen"
+      :last-saved-at="lastSavedAt"
+      @close="clearModalOpen = false"
+      @confirm="clearState"
+    />
   </div>
 </template>

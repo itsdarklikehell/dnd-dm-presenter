@@ -52,6 +52,11 @@ All the data that you enter is only available within that browser on that machin
 You can store everything into a zip file.
 This way you can prepare for multiple sessions or reuse the data on a different machine.
 
+The **trash** button next to save and load wipes every NPC, item, location, player, group and session event from
+this browser. It asks for confirmation first, and that confirmation tells you when you last saved to a zip, so you
+can judge how much is about to be lost. Your Leonardo API key and style prompt survive the wipe, since those are
+per-machine settings rather than session data.
+
 # Development
 
 ## Setup

@@ -1,5 +1,6 @@
 import { strToU8, unzipSync, zipSync } from 'fflate'
 import { NPCS_KEY, isStoredNpcArray, type StoredNpc } from '~/stores/npcs'
+import { BACKUP_KEY, serializeLastSavedAt } from '~/stores/backup'
 import { LEONARDO_API_KEY_STORAGE_KEY } from '~/composables/useLeonardoApiKey'
 
 const STORAGE_PREFIX = 'dm-presenter:'
@@ -16,6 +17,8 @@ const EXT_TO_MIME: Record<string, string> = {
 }
 
 export function useStateBackup() {
+  const backupStore = useBackupStore()
+
   function exportState(): void {
     const entries = readPrefixedEntries()
     const imageFiles: Record<string, Uint8Array> = {}
@@ -54,6 +57,14 @@ export function useStateBackup() {
     link.click()
 
     URL.revokeObjectURL(url)
+
+    backupStore.markSaved(new Date().toISOString())
+  }
+
+  function clearState(): void {
+    removeSessionDataKeys()
+    window.localStorage.removeItem(BACKUP_KEY)
+    window.location.reload()
   }
 
   async function importState(file: File): Promise<void> {
@@ -94,20 +105,30 @@ export function useStateBackup() {
       }
     }
 
-    for (const key of Object.keys(window.localStorage)) {
-      if (key.startsWith(STORAGE_PREFIX) && key !== LEONARDO_API_KEY_STORAGE_KEY) {
-        window.localStorage.removeItem(key)
-      }
-    }
+    removeSessionDataKeys()
 
     for (const [key, value] of Object.entries(parsed)) {
       window.localStorage.setItem(key, value)
     }
 
+    window.localStorage.setItem(BACKUP_KEY, serializeLastSavedAt(new Date().toISOString()))
+
     window.location.reload()
   }
 
-  return { exportState, importState }
+  return { exportState, importState, clearState }
+}
+
+function removeSessionDataKeys(): void {
+  for (const key of Object.keys(window.localStorage)) {
+    if (isSessionDataKey(key)) {
+      window.localStorage.removeItem(key)
+    }
+  }
+}
+
+function isSessionDataKey(key: string): boolean {
+  return key.startsWith(STORAGE_PREFIX) && key !== LEONARDO_API_KEY_STORAGE_KEY && key !== BACKUP_KEY
 }
 
 function readPrefixedEntries(): Record<string, string> {
@@ -116,7 +137,7 @@ function readPrefixedEntries(): Record<string, string> {
   for (let i = 0; i < window.localStorage.length; i++) {
     const key = window.localStorage.key(i)
 
-    if (key?.startsWith(STORAGE_PREFIX) && key !== LEONARDO_API_KEY_STORAGE_KEY) {
+    if (key && isSessionDataKey(key)) {
       entries[key] = window.localStorage.getItem(key) ?? ''
     }
   }
