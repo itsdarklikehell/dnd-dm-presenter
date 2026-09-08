@@ -27,16 +27,16 @@ async function onFileSelected(event: Event): Promise<void> {
 }
 
 const storageUsageStore = useStorageUsageStore()
-const { usedBytes } = storeToRefs(storageUsageStore)
-const { limitBytes, refresh: refreshStorageUsage } = storageUsageStore
-const usagePercent = computed(() => Math.min(100, (usedBytes.value / limitBytes) * 100))
+const { usedBytes, limitBytes } = storeToRefs(storageUsageStore)
+const { refresh: refreshStorageUsage } = storageUsageStore
+const usagePercent = computed(() => Math.min(100, (usedBytes.value / limitBytes.value) * 100))
 const usageColor = computed(() => usagePercent.value >= 90 ? 'text-error' : 'text-muted')
 
 let storageUsagePoll: ReturnType<typeof setInterval>
 
 onMounted(() => {
-  refreshStorageUsage()
-  storageUsagePoll = setInterval(refreshStorageUsage, 3000)
+  void refreshStorageUsage()
+  storageUsagePoll = setInterval(() => void refreshStorageUsage(), 3000)
 })
 
 onBeforeUnmount(() => {
@@ -66,7 +66,7 @@ onBeforeUnmount(() => {
           color="neutral"
           variant="ghost"
           title="Save state to zip"
-          @click="exportState"
+          @click="() => exportState()"
         />
         <UButton
           icon="i-lucide-download"
@@ -96,7 +96,7 @@ onBeforeUnmount(() => {
       :open="clearModalOpen"
       :last-saved-at="lastSavedAt"
       @close="clearModalOpen = false"
-      @confirm="clearState"
+      @confirm="() => clearState()"
     />
   </div>
 </template>
