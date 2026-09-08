@@ -10,11 +10,19 @@ export const useItemsStore = defineStore('items', () => {
   }
 
   function removeItem(id: string): void {
+    const removed = items.value.filter(entry => entry.id === id)
+
     items.value = items.value.filter(entry => entry.id !== id)
+
+    void releaseImages(removed)
   }
 
   function updateItem(id: string, input: { name: string, image: string }): void {
+    const replaced = replacedImages(items.value, id, input.image)
+
     items.value = items.value.map(entry => entry.id === id ? { ...entry, ...input } : entry)
+
+    void releaseImages(replaced)
   }
 
   function reorderItems(orderedIds: string[]): void {
