@@ -55,13 +55,8 @@ export function useImageSource(image: MaybeRefOrGetter<string>): Ref<string> {
 
     release()
 
-    if (!ref || !import.meta.client) {
+    if (!ref || !import.meta.client || !isImageRef(ref)) {
       source.value = ''
-      return
-    }
-
-    if (!isImageRef(ref)) {
-      source.value = ref
       return
     }
 
@@ -97,17 +92,5 @@ export function useImageSource(image: MaybeRefOrGetter<string>): Ref<string> {
 }
 
 export async function loadImageBlob(image: string): Promise<Blob | null> {
-  if (!image) {
-    return null
-  }
-
-  if (isImageRef(image)) {
-    return await getImageBlob(image)
-  }
-
-  if (isLegacyDataUri(image)) {
-    return await (await fetch(image)).blob()
-  }
-
-  return null
+  return isImageRef(image) ? await getImageBlob(image) : null
 }

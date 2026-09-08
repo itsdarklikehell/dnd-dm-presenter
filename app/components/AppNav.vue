@@ -9,6 +9,7 @@ const items = [
 ]
 
 const { exportState, importState, clearState } = useStateBackup()
+const toast = useToast()
 const { lastSavedAt } = storeToRefs(useBackupStore())
 
 const fileInput = ref<HTMLInputElement>()
@@ -19,10 +20,24 @@ function triggerLoad(): void {
 }
 
 async function onFileSelected(event: Event): Promise<void> {
-  const file = (event.target as HTMLInputElement).files?.[0]
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
 
-  if (file) {
+  input.value = ''
+
+  if (!file) {
+    return
+  }
+
+  try {
     await importState(file)
+  } catch (error) {
+    toast.add({
+      title: 'Could not load that zip',
+      description: error instanceof Error ? error.message : 'Unknown error',
+      color: 'error',
+      icon: 'i-lucide-triangle-alert'
+    })
   }
 }
 
