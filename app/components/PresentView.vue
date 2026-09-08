@@ -25,6 +25,8 @@ const activeLocation = computed(() => activeLocationId.value
   ? locations.value.find(entry => entry.id === activeLocationId.value) ?? null
   : null)
 
+const activeLocationSource = useImageSource(() => activeLocation.value?.image ?? '')
+
 const activeEntries = computed(() => mode.value === 'item' ? displayedItems.value : presentNpcs.value)
 
 const columns = computed(() => {
@@ -61,12 +63,12 @@ useHead({
           :key="npc.id"
           class="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden"
         >
-          <img
-            :src="npc.image"
+          <StoredImage
+            :image="npc.image"
             :alt="npc.name"
             class="block min-h-0 w-full flex-1 object-contain"
             :class="isFlagSet(npc.id, 'seen') ? '' : 'blur-xl'"
-          >
+          />
 
           <div
             v-if="isFlagSet(npc.id, 'introduced')"
@@ -91,7 +93,7 @@ useHead({
         class="flex h-full w-full items-center justify-center overflow-hidden bg-black"
       >
         <LocationFogCanvas
-          :image="activeLocation.image"
+          :image="activeLocationSource"
           :revealed-rects="getFogState(activeLocation.id).revealedRects"
           :fog-enabled="getFogState(activeLocation.id).fogEnabled"
           :view="getView(activeLocation.id)"
@@ -118,11 +120,10 @@ useHead({
           :key="entry.id"
           class="flex h-full min-h-0 w-full min-w-0 flex-col items-center justify-center overflow-hidden"
         >
-          <img
-            :src="entry.image"
-            alt=""
+          <StoredImage
+            :image="entry.image"
             class="block min-h-0 w-full flex-1 object-contain"
-          >
+          />
 
           <div
             v-if="entry.name"

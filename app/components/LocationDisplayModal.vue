@@ -14,6 +14,8 @@ const { getFogState, getView, setView, addFog, clearFog, revealRect } = location
 const stageEl = ref<HTMLElement | null>(null)
 
 const fogState = computed(() => props.location ? getFogState(props.location.id) : { fogEnabled: false, revealedRects: [] })
+const imageSource = useImageSource(() => props.location?.image ?? '')
+
 const view = computed(() => props.location ? getView(props.location.id) : { scale: 1, offsetX: 0, offsetY: 0 })
 
 function focusStage(): void {
@@ -95,7 +97,7 @@ function onViewChange(next: LocationView): void {
           class="flex max-h-[60vh] items-center justify-center overflow-hidden rounded-lg bg-black/80 p-2 outline-none"
         >
           <LocationFogCanvas
-            :image="location.image"
+            :image="imageSource"
             :revealed-rects="fogState.revealedRects"
             :fog-enabled="fogState.fogEnabled"
             :view="view"

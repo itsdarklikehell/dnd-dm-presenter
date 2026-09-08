@@ -3,19 +3,12 @@ export interface ImageEncoding {
   quality: number
 }
 
+export const PORTRAIT_IMAGE_ENCODING: ImageEncoding = { maxDimension: 1024, quality: 0.8 }
+
 export async function convertImageFileToWebpBlob(file: File | Blob, { maxDimension, quality }: ImageEncoding): Promise<Blob> {
   const canvas = await drawScaledImage(file, maxDimension)
 
   return await canvasToWebpBlob(canvas, quality)
-}
-
-export async function convertImageFileToWebp(
-  file: File | Blob,
-  { maxDimension = 1024, quality = 0.8 }: Partial<ImageEncoding> = {}
-): Promise<string> {
-  const canvas = await drawScaledImage(file, maxDimension)
-
-  return canvas.toDataURL('image/webp', quality)
 }
 
 async function drawScaledImage(file: File | Blob, maxDimension: number): Promise<HTMLCanvasElement> {

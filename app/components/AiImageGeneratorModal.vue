@@ -11,15 +11,26 @@ const { apiKey } = useLeonardoApiKey()
 const { style } = useLeonardoImageStyle()
 const { npcs } = storeToRefs(useNpcsStore())
 
-const mimicImageStyleOptions = computed(() => npcs.value
-  .filter(npc => npc.image)
-  .map(npc => ({
-    label: npc.name,
-    value: npc.id,
-    avatar: { src: npc.image }
-  })))
+const mimicImageStyleNpcs = computed(() => npcs.value.filter(npc => npc.image))
+const mimicImageStyleThumbnails = ref<Record<string, string>>({})
+
+const mimicImageStyleOptions = computed(() => mimicImageStyleNpcs.value.map(npc => ({
+  label: npc.name,
+  value: npc.id,
+  avatar: { src: mimicImageStyleThumbnails.value[npc.id] }
+})))
 
 const mimicImageStyleNpcId = ref('')
+
+async function loadMimicImageStyleThumbnails(): Promise<void> {
+  const thumbnails = await Promise.all(mimicImageStyleNpcs.value.map(async (npc) => {
+    const blob = await loadImageBlob(npc.image)
+
+    return [npc.id, blob ? await blobToDataUri(blob) : ''] as const
+  }))
+
+  mimicImageStyleThumbnails.value = Object.fromEntries(thumbnails)
+}
 
 const isGenerating = ref(false)
 const error = ref('')
@@ -32,6 +43,8 @@ watch(open, (isOpen) => {
 
   error.value = ''
   generatedImage.value = null
+
+  void loadMimicImageStyleThumbnails()
 })
 
 async function generate(): Promise<void> {
@@ -45,7 +58,7 @@ async function generate(): Promise<void> {
 
   try {
     const mimicImageStyleNpc = npcs.value.find(npc => npc.id === mimicImageStyleNpcId.value)
-    const mimicImageStyleReference = mimicImageStyleNpc ? resolveMimicImageStyleReference(mimicImageStyleNpc) : undefined
+    const mimicImageStyleReference = mimicImageStyleNpc ? await resolveMimicImageStyleReference(mimicImageStyleNpc) : undefined
 
     generatedImage.value = await generateLeonardoNpcImage(apiKey.value, {
       species: props.species,
@@ -63,10 +76,14 @@ async function generate(): Promise<void> {
   }
 }
 
-function resolveMimicImageStyleReference(npc: Npc): LeonardoImageReference {
-  return npc.leonardoImageId
-    ? { type: 'GENERATED', id: npc.leonardoImageId }
-    : { type: 'BASE64', dataUri: npc.image }
+async function resolveMimicImageStyleReference(npc: Npc): Promise<LeonardoImageReference | undefined> {
+  if (npc.leonardoImageId) {
+    return { type: 'GENERATED', id: npc.leonardoImageId }
+  }
+
+  const blob = await loadImageBlob(npc.image)
+
+  return blob ? { type: 'BASE64', dataUri: await blobToDataUri(blob) } : undefined
 }
 
 function accept(): void {
@@ -146,11 +163,11 @@ function accept(): void {
           v-if="generatedImage"
           class="flex flex-col items-center gap-3"
         >
-          <img
-            :src="generatedImage.image"
+          <StoredImage
+            :image="generatedImage.image"
             class="max-h-64 rounded object-cover"
             alt="Generated NPC portrait"
-          >
+          />
         </div>
       </div>
     </template>

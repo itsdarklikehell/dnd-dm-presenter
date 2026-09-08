@@ -70,11 +70,10 @@ function confirmRemove(): void {
           :key="entry.id"
           class="group relative aspect-square overflow-hidden rounded-lg ring ring-default"
         >
-          <img
-            :src="entry.image"
-            alt=""
+          <StoredImage
+            :image="entry.image"
             class="h-full w-full object-cover"
-          >
+          />
 
           <slot
             name="overlay"
