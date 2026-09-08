@@ -15,7 +15,7 @@ const { isDisplayed } = displayStore
 
 const locationDisplayStore = useLocationDisplayStore()
 const { activeLocationId } = storeToRefs(locationDisplayStore)
-const { getFogState } = locationDisplayStore
+const { getFogState, getView } = locationDisplayStore
 
 const { hydrated } = storeToRefs(useHydrationStore())
 
@@ -88,12 +88,13 @@ useHead({
     <template v-else-if="mode === 'location'">
       <div
         v-if="activeLocation"
-        class="flex h-full w-full items-center justify-center bg-black"
+        class="flex h-full w-full items-center justify-center overflow-hidden bg-black"
       >
         <LocationFogCanvas
           :image="activeLocation.image"
           :revealed-rects="getFogState(activeLocation.id).revealedRects"
           :fog-enabled="getFogState(activeLocation.id).fogEnabled"
+          :view="getView(activeLocation.id)"
           mode="true-fog"
         />
       </div>

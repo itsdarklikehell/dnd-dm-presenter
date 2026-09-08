@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import type { Rect } from '~/types/fog'
+import type { LocationView, Rect } from '~/types/fog'
 
 const props = defineProps<{
   image: string
   revealedRects: Rect[]
   fogEnabled: boolean
+  view: LocationView
   mode: 'dm-preview' | 'true-fog'
   interactive?: boolean
 }>()
 
 const emit = defineEmits<{
-  reveal: [rect: Rect]
+  'reveal': [rect: Rect]
+  'update:view': [view: LocationView]
 }>()
+
+const MAX_SCALE = 8
+const ZOOM_SENSITIVITY = 0.0015
 
 const wrapperEl = ref<HTMLElement | null>(null)
 const canvasEl = ref<HTMLCanvasElement | null>(null)
@@ -19,6 +24,32 @@ const aspectRatio = ref(1)
 const displaySize = ref({ width: 0, height: 0 })
 const dragStart = ref<{ x: number, y: number } | null>(null)
 const dragCurrent = ref<{ x: number, y: number } | null>(null)
+const panMode = ref(false)
+const panOrigin = ref<{ clientX: number, clientY: number, offsetX: number, offsetY: number } | null>(null)
+
+const canPan = computed(() => props.view.scale > 1)
+
+const wrapperStyle = computed(() => ({
+  width: `${displaySize.value.width}px`,
+  height: `${displaySize.value.height}px`,
+  transform: `translate(${props.view.offsetX * displaySize.value.width}px, ${props.view.offsetY * displaySize.value.height}px) scale(${props.view.scale})`
+}))
+
+const cursorClass = computed(() => {
+  if (!props.interactive) {
+    return ''
+  }
+
+  if (panMode.value) {
+    if (!canPan.value) {
+      return 'cursor-not-allowed'
+    }
+
+    return panOrigin.value ? 'cursor-grabbing' : 'cursor-grab'
+  }
+
+  return 'cursor-crosshair'
+})
 
 watch(() => props.image, (src) => {
   const img = new Image()
@@ -58,7 +89,7 @@ function draw(): void {
     const rect = dragToRect(dragStart.value, dragCurrent.value)
     ctx.strokeStyle = 'white'
     ctx.setLineDash([6, 4])
-    ctx.lineWidth = 2
+    ctx.lineWidth = 2 / props.view.scale
     ctx.strokeRect(rect.x * canvas.width, rect.y * canvas.height, rect.width * canvas.width, rect.height * canvas.height)
     ctx.setLineDash([])
   }
@@ -97,11 +128,80 @@ onMounted(() => {
     resizeObserver.observe(wrapperEl.value.parentElement)
   }
   resizeCanvas()
+
+  if (!props.interactive) {
+    return
+  }
+
+  canvasEl.value?.addEventListener('wheel', onWheel, { passive: false })
+  window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('keyup', onKeyUp)
+  window.addEventListener('blur', stopPanMode)
 })
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
+  canvasEl.value?.removeEventListener('wheel', onWheel)
+  window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('keyup', onKeyUp)
+  window.removeEventListener('blur', stopPanMode)
 })
+
+function clampView(view: LocationView): LocationView {
+  const scale = Math.min(MAX_SCALE, Math.max(1, view.scale))
+  const limit = (scale - 1) / 2
+
+  return {
+    scale,
+    offsetX: Math.min(limit, Math.max(-limit, view.offsetX)),
+    offsetY: Math.min(limit, Math.max(-limit, view.offsetY))
+  }
+}
+
+function onWheel(event: WheelEvent): void {
+  const canvas = canvasEl.value
+  if (!canvas) {
+    return
+  }
+
+  event.preventDefault()
+
+  const bounds = canvas.getBoundingClientRect()
+  const anchorX = (event.clientX - bounds.left) / bounds.width - 0.5
+  const anchorY = (event.clientY - bounds.top) / bounds.height - 0.5
+  const scale = Math.min(MAX_SCALE, Math.max(1, props.view.scale * Math.exp(-event.deltaY * ZOOM_SENSITIVITY)))
+
+  emit('update:view', clampView({
+    scale,
+    offsetX: props.view.offsetX + anchorX * (props.view.scale - scale),
+    offsetY: props.view.offsetY + anchorY * (props.view.scale - scale)
+  }))
+}
+
+function onKeyDown(event: KeyboardEvent): void {
+  if (event.code !== 'Space' || event.repeat) {
+    return
+  }
+
+  const target = event.target as HTMLElement | null
+  if (target?.closest('input, textarea, select, button, [contenteditable="true"]')) {
+    return
+  }
+
+  event.preventDefault()
+  panMode.value = true
+}
+
+function onKeyUp(event: KeyboardEvent): void {
+  if (event.code === 'Space') {
+    stopPanMode()
+  }
+}
+
+function stopPanMode(): void {
+  panMode.value = false
+  panOrigin.value = null
+}
 
 function pointerToUnit(event: PointerEvent): { x: number, y: number } {
   const canvas = canvasEl.value
@@ -130,13 +230,36 @@ function onPointerDown(event: PointerEvent): void {
     return
   }
 
+  if (panMode.value) {
+    if (!canPan.value) {
+      return
+    }
+
+    canvasEl.value?.setPointerCapture(event.pointerId)
+    panOrigin.value = { clientX: event.clientX, clientY: event.clientY, offsetX: props.view.offsetX, offsetY: props.view.offsetY }
+    return
+  }
+
   canvasEl.value?.setPointerCapture(event.pointerId)
   dragStart.value = pointerToUnit(event)
   dragCurrent.value = dragStart.value
 }
 
 function onPointerMove(event: PointerEvent): void {
-  if (!props.interactive || !dragStart.value) {
+  if (!props.interactive) {
+    return
+  }
+
+  if (panOrigin.value) {
+    emit('update:view', clampView({
+      scale: props.view.scale,
+      offsetX: panOrigin.value.offsetX + (event.clientX - panOrigin.value.clientX) / displaySize.value.width,
+      offsetY: panOrigin.value.offsetY + (event.clientY - panOrigin.value.clientY) / displaySize.value.height
+    }))
+    return
+  }
+
+  if (!dragStart.value) {
     return
   }
 
@@ -145,7 +268,16 @@ function onPointerMove(event: PointerEvent): void {
 }
 
 function onPointerUp(): void {
-  if (!props.interactive || !dragStart.value || !dragCurrent.value) {
+  if (!props.interactive) {
+    return
+  }
+
+  if (panOrigin.value) {
+    panOrigin.value = null
+    return
+  }
+
+  if (!dragStart.value || !dragCurrent.value) {
     return
   }
 
@@ -164,7 +296,7 @@ function onPointerUp(): void {
   <div
     ref="wrapperEl"
     class="relative"
-    :style="{ width: `${displaySize.width}px`, height: `${displaySize.height}px` }"
+    :style="wrapperStyle"
   >
     <img
       :src="image"
@@ -174,7 +306,7 @@ function onPointerUp(): void {
     <canvas
       ref="canvasEl"
       class="absolute inset-0 h-full w-full"
-      :class="interactive ? 'cursor-crosshair' : ''"
+      :class="cursorClass"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
