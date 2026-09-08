@@ -72,6 +72,7 @@ function confirmRemove(): void {
         >
           <StoredImage
             :image="entry.image"
+            loading="lazy"
             class="h-full w-full object-cover"
           />
 

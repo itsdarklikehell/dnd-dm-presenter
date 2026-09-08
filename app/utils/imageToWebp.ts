@@ -5,6 +5,9 @@ export interface ImageEncoding {
 
 export const PORTRAIT_IMAGE_ENCODING: ImageEncoding = { maxDimension: 1024, quality: 0.8 }
 
+// Location maps are zoomed into up to MAX_SCALE in LocationFogCanvas, so they keep far more pixels than a portrait.
+export const LOCATION_IMAGE_ENCODING: ImageEncoding = { maxDimension: 4096, quality: 0.85 }
+
 export async function convertImageFileToWebpBlob(file: File | Blob, { maxDimension, quality }: ImageEncoding): Promise<Blob> {
   const canvas = await drawScaledImage(file, maxDimension)
 

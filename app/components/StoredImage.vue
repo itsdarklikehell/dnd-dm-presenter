@@ -9,5 +9,6 @@ const source = useImageSource(() => props.image)
     v-if="source"
     :src="source"
     :alt="alt ?? ''"
+    decoding="async"
   >
 </template>

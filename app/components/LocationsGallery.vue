@@ -27,7 +27,7 @@ async function onFileChange(event: Event): Promise<void> {
   const file = input.files?.[0]
 
   if (file) {
-    addLocation(await putImageBlob(await convertImageFileToWebpBlob(file, PORTRAIT_IMAGE_ENCODING)))
+    addLocation(await putImageBlob(await convertImageFileToWebpBlob(file, LOCATION_IMAGE_ENCODING)))
   }
 
   input.value = ''
