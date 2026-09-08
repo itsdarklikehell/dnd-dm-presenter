@@ -43,7 +43,7 @@ useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Tangerine:wght@400;700&display=swap' }
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Metamorphous&display=swap' }
   ]
 })
 </script>
@@ -70,7 +70,7 @@ useHead({
 
           <div
             v-if="isFlagSet(npc.id, 'introduced')"
-            class="tangerine-bold shrink-0 bg-white py-1 text-center text-[4cqw] text-black"
+            class="metamorphous shrink-0 bg-white py-1 text-center text-[4cqw] text-black"
           >
             {{ npc.name }}
           </div>
@@ -126,7 +126,7 @@ useHead({
 
           <div
             v-if="entry.name"
-            class="tangerine-bold shrink-0 bg-white py-1 text-center text-[4cqw] text-black"
+            class="metamorphous shrink-0 bg-white py-1 text-center text-[4cqw] text-black"
           >
             {{ entry.name }}
           </div>
@@ -144,15 +144,9 @@ useHead({
 </template>
 
 <style scoped>
-.tangerine-regular {
-  font-family: "Tangerine", cursive;
+.metamorphous {
+  font-family: "Metamorphous", serif;
   font-weight: 400;
-  font-style: normal;
-}
-
-.tangerine-bold {
-  font-family: "Tangerine", cursive;
-  font-weight: 700;
   font-style: normal;
 }
 </style>
