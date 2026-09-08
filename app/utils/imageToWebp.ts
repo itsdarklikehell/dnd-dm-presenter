@@ -1,7 +1,24 @@
+export interface ImageEncoding {
+  maxDimension: number
+  quality: number
+}
+
+export async function convertImageFileToWebpBlob(file: File | Blob, { maxDimension, quality }: ImageEncoding): Promise<Blob> {
+  const canvas = await drawScaledImage(file, maxDimension)
+
+  return await canvasToWebpBlob(canvas, quality)
+}
+
 export async function convertImageFileToWebp(
   file: File | Blob,
-  { maxDimension = 1024, quality = 0.8 }: { maxDimension?: number, quality?: number } = {}
+  { maxDimension = 1024, quality = 0.8 }: Partial<ImageEncoding> = {}
 ): Promise<string> {
+  const canvas = await drawScaledImage(file, maxDimension)
+
+  return canvas.toDataURL('image/webp', quality)
+}
+
+async function drawScaledImage(file: File | Blob, maxDimension: number): Promise<HTMLCanvasElement> {
   const objectUrl = URL.createObjectURL(file)
 
   try {
@@ -20,10 +37,21 @@ export async function convertImageFileToWebp(
     }
 
     ctx.drawImage(img, 0, 0, width, height)
-    return canvas.toDataURL('image/webp', quality)
+
+    return canvas
   } finally {
     URL.revokeObjectURL(objectUrl)
   }
+}
+
+function canvasToWebpBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      blob => blob ? resolve(blob) : reject(new Error('Failed to encode the image as webp')),
+      'image/webp',
+      quality
+    )
+  })
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
