@@ -94,7 +94,7 @@ useHead({
       >
         <LocationFogCanvas
           :image="activeLocationSource"
-          :revealed-rects="getFogState(activeLocation.id).revealedRects"
+          :revealed-areas="getFogState(activeLocation.id).revealedAreas"
           :fog-enabled="getFogState(activeLocation.id).fogEnabled"
           :view="getView(activeLocation.id)"
           mode="true-fog"

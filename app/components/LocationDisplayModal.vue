@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Location } from '~/types/location'
-import type { LocationView, Rect } from '~/types/locationDisplay'
+import type { FogSelectionMode, LocationView, RevealArea } from '~/types/locationDisplay'
 
 const props = defineProps<{ location: Location | null }>()
 
@@ -9,7 +9,8 @@ const emit = defineEmits<{
 }>()
 
 const locationDisplayStore = useLocationDisplayStore()
-const { getFogState, getView, setView, addFog, clearFog, revealRect } = locationDisplayStore
+const { selectionMode } = storeToRefs(locationDisplayStore)
+const { getFogState, getView, setView, addFog, clearFog, revealArea, undoReveal, setSelectionMode } = locationDisplayStore
 
 const { removeLocation } = useLocationsStore()
 
@@ -17,10 +18,14 @@ const confirmingDelete = ref(false)
 
 const stageEl = ref<HTMLElement | null>(null)
 
-const fogState = computed(() => props.location ? getFogState(props.location.id) : { fogEnabled: false, revealedRects: [] })
+const fogState = computed(() => props.location ? getFogState(props.location.id) : { fogEnabled: false, revealedAreas: [] })
 const imageSource = useImageSource(() => props.location?.image ?? '')
 
 const view = computed(() => props.location ? getView(props.location.id) : { scale: 1, offsetX: 0, offsetY: 0 })
+
+const selectionHint = computed(() => selectionMode.value === 'freeform'
+  ? 'Draw a loop and release on the start dot to reveal it'
+  : 'Drag a square to reveal it')
 
 function focusStage(): void {
   stageEl.value?.focus()
@@ -47,9 +52,19 @@ function onClearFog(id: string): void {
   focusStage()
 }
 
-function onReveal(rect: Rect): void {
+function onSelectionMode(mode: FogSelectionMode): void {
+  setSelectionMode(mode)
+  focusStage()
+}
+
+function onUndo(id: string): void {
+  undoReveal(id)
+  focusStage()
+}
+
+function onReveal(area: RevealArea): void {
   if (props.location) {
-    revealRect(props.location.id, rect)
+    revealArea(props.location.id, area)
   }
 }
 
@@ -81,27 +96,61 @@ function onViewChange(next: LocationView): void {
         v-if="location"
         class="flex flex-col gap-4"
       >
-        <div class="flex flex-wrap items-center gap-2">
-          <UButton
-            color="neutral"
-            variant="subtle"
-            icon="i-lucide-cloud-fog"
-            @click="onAddFog(location.id)"
-          >
-            Cover with fog of war
-          </UButton>
+        <div class="flex flex-col gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <UButton
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-cloud-fog"
+              @click="onAddFog(location.id)"
+            >
+              Cover with fog of war
+            </UButton>
 
-          <UButton
-            color="neutral"
-            variant="subtle"
-            icon="i-lucide-cloud-sun"
-            @click="onClearFog(location.id)"
-          >
-            Clear fog of war
-          </UButton>
+            <UButton
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-cloud-sun"
+              @click="onClearFog(location.id)"
+            >
+              Clear fog of war
+            </UButton>
+
+            <UButton
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-undo-2"
+              :disabled="!fogState.revealedAreas.length"
+              @click="onUndo(location.id)"
+            >
+              Undo reveal
+            </UButton>
+
+            <UFieldGroup>
+              <UTooltip text="Reveal squares">
+                <UButton
+                  icon="i-lucide-square-dashed"
+                  :color="selectionMode === 'rect' ? 'primary' : 'neutral'"
+                  :variant="selectionMode === 'rect' ? 'solid' : 'subtle'"
+                  aria-label="Reveal squares"
+                  @click="onSelectionMode('rect')"
+                />
+              </UTooltip>
+
+              <UTooltip text="Reveal a free-form area">
+                <UButton
+                  icon="i-lucide-lasso"
+                  :color="selectionMode === 'freeform' ? 'primary' : 'neutral'"
+                  :variant="selectionMode === 'freeform' ? 'solid' : 'subtle'"
+                  aria-label="Reveal a free-form area"
+                  @click="onSelectionMode('freeform')"
+                />
+              </UTooltip>
+            </UFieldGroup>
+          </div>
 
           <span class="text-xs text-neutral-500">
-            Scroll to zoom &middot; hold space to drag
+            {{ selectionHint }} &middot; scroll to zoom &middot; hold space to drag
           </span>
         </div>
 
@@ -112,9 +161,10 @@ function onViewChange(next: LocationView): void {
         >
           <LocationFogCanvas
             :image="imageSource"
-            :revealed-rects="fogState.revealedRects"
+            :revealed-areas="fogState.revealedAreas"
             :fog-enabled="fogState.fogEnabled"
             :view="view"
+            :selection-mode="selectionMode"
             mode="dm-preview"
             interactive
             @reveal="onReveal"

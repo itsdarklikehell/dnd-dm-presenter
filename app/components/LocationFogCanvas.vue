@@ -1,30 +1,45 @@
 <script setup lang="ts">
-import type { LocationView, Rect } from '~/types/locationDisplay'
+import type { FogSelectionMode, LocationView, Point, Rect, RevealArea } from '~/types/locationDisplay'
 
 // `image` is a resolved, renderable src — the parent resolves the stored image reference.
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   image: string
-  revealedRects: Rect[]
+  revealedAreas: RevealArea[]
   fogEnabled: boolean
   view: LocationView
   mode: 'dm-preview' | 'true-fog'
   interactive?: boolean
-}>()
+  selectionMode?: FogSelectionMode
+}>(), {
+  selectionMode: 'rect'
+})
 
 const emit = defineEmits<{
-  'reveal': [rect: Rect]
+  'reveal': [area: RevealArea]
   'update:view': [view: LocationView]
 }>()
 
 const MAX_SCALE = 8
 const ZOOM_SENSITIVITY = 0.0015
 
+// Screen-space distances; divided by `view.scale` before use, since the canvas is scaled by the view transform.
+const CLOSE_DISTANCE_PX = 18
+const SAMPLE_DISTANCE_PX = 3
+const LEFT_START_FACTOR = 1.5
+
+const MIN_AREA_POINTS = 3
+const MIN_REVEAL_SIZE = 0.0004
+
+const CLOSABLE_COLOR = '#4ade80'
+
 const wrapperEl = ref<HTMLElement | null>(null)
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const aspectRatio = ref(1)
 const displaySize = ref({ width: 0, height: 0 })
-const dragStart = ref<{ x: number, y: number } | null>(null)
-const dragCurrent = ref<{ x: number, y: number } | null>(null)
+const dragStart = ref<Point | null>(null)
+const dragCurrent = ref<Point | null>(null)
+const freeformPoints = ref<Point[]>([])
+const freeformLeftStart = ref(false)
 const panMode = ref(false)
 const panOrigin = ref<{ clientX: number, clientY: number, offsetX: number, offsetY: number } | null>(null)
 
@@ -61,6 +76,20 @@ watch(() => props.image, (src) => {
   img.src = src
 }, { immediate: true })
 
+// Switching gesture drops whatever was half-drawn; already revealed areas are untouched.
+watch(() => props.selectionMode, cancelDrag)
+
+function tracePath(ctx: CanvasRenderingContext2D, points: Point[], width: number, height: number): void {
+  ctx.beginPath()
+  points.forEach((point, index) => {
+    if (index === 0) {
+      ctx.moveTo(point.x * width, point.y * height)
+    } else {
+      ctx.lineTo(point.x * width, point.y * height)
+    }
+  })
+}
+
 function draw(): void {
   const canvas = canvasEl.value
   if (!canvas) {
@@ -80,20 +109,56 @@ function draw(): void {
 
     ctx.globalCompositeOperation = 'destination-out'
     ctx.fillStyle = 'rgba(0, 0, 0, 1)'
-    for (const rect of props.revealedRects) {
-      ctx.fillRect(rect.x * canvas.width, rect.y * canvas.height, rect.width * canvas.width, rect.height * canvas.height)
+    for (const area of props.revealedAreas) {
+      tracePath(ctx, area, canvas.width, canvas.height)
+      ctx.closePath()
+      ctx.fill()
     }
     ctx.globalCompositeOperation = 'source-over'
   }
 
+  drawPendingSelection(ctx, canvas)
+}
+
+function drawPendingSelection(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
+  const lineWidth = 2 / props.view.scale
+
+  ctx.strokeStyle = 'white'
+  ctx.lineWidth = lineWidth
+  ctx.setLineDash([6, 4])
+
+  if (props.selectionMode === 'freeform') {
+    const start = freeformPoints.value[0]
+    if (!start) {
+      ctx.setLineDash([])
+      return
+    }
+
+    tracePath(ctx, freeformPoints.value, canvas.width, canvas.height)
+    ctx.stroke()
+    ctx.setLineDash([])
+
+    // The starting point doubles as the confirm target: bring the drag back onto it and release.
+    const closable = canClosePath()
+    ctx.beginPath()
+    ctx.arc(start.x * canvas.width, start.y * canvas.height, closeThreshold(), 0, Math.PI * 2)
+    ctx.strokeStyle = closable ? CLOSABLE_COLOR : 'white'
+    ctx.stroke()
+
+    if (closable) {
+      ctx.fillStyle = 'rgba(74, 222, 128, 0.35)'
+      ctx.fill()
+    }
+
+    return
+  }
+
   if (dragStart.value && dragCurrent.value) {
     const rect = dragToRect(dragStart.value, dragCurrent.value)
-    ctx.strokeStyle = 'white'
-    ctx.setLineDash([6, 4])
-    ctx.lineWidth = 2 / props.view.scale
     ctx.strokeRect(rect.x * canvas.width, rect.y * canvas.height, rect.width * canvas.width, rect.height * canvas.height)
-    ctx.setLineDash([])
   }
+
+  ctx.setLineDash([])
 }
 
 function resizeCanvas(): void {
@@ -119,7 +184,7 @@ function resizeCanvas(): void {
   draw()
 }
 
-watch([() => props.fogEnabled, () => props.revealedRects, () => props.mode], draw, { deep: true })
+watch([() => props.fogEnabled, () => props.revealedAreas, () => props.mode], draw, { deep: true })
 
 let resizeObserver: ResizeObserver | null = null
 
@@ -137,7 +202,7 @@ onMounted(() => {
   canvasEl.value?.addEventListener('wheel', onWheel, { passive: false })
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
-  window.addEventListener('blur', stopPanMode)
+  window.addEventListener('blur', onWindowBlur)
 })
 
 onBeforeUnmount(() => {
@@ -145,7 +210,7 @@ onBeforeUnmount(() => {
   canvasEl.value?.removeEventListener('wheel', onWheel)
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('keyup', onKeyUp)
-  window.removeEventListener('blur', stopPanMode)
+  window.removeEventListener('blur', onWindowBlur)
 })
 
 function clampView(view: LocationView): LocationView {
@@ -180,12 +245,18 @@ function onWheel(event: WheelEvent): void {
 }
 
 function onKeyDown(event: KeyboardEvent): void {
-  if (event.code !== 'Space' || event.repeat) {
+  const target = event.target as HTMLElement | null
+  if (target?.closest('input, textarea, select, button, [contenteditable="true"]')) {
     return
   }
 
-  const target = event.target as HTMLElement | null
-  if (target?.closest('input, textarea, select, button, [contenteditable="true"]')) {
+  if (event.key === 'Escape' && freeformPoints.value.length) {
+    event.preventDefault()
+    cancelDrag()
+    return
+  }
+
+  if (event.code !== 'Space' || event.repeat) {
     return
   }
 
@@ -204,7 +275,20 @@ function stopPanMode(): void {
   panOrigin.value = null
 }
 
-function pointerToUnit(event: PointerEvent): { x: number, y: number } {
+function onWindowBlur(): void {
+  stopPanMode()
+  cancelDrag()
+}
+
+function cancelDrag(): void {
+  dragStart.value = null
+  dragCurrent.value = null
+  freeformPoints.value = []
+  freeformLeftStart.value = false
+  draw()
+}
+
+function pointerToUnit(event: PointerEvent): Point {
   const canvas = canvasEl.value
   if (!canvas) {
     return { x: 0, y: 0 }
@@ -217,13 +301,41 @@ function pointerToUnit(event: PointerEvent): { x: number, y: number } {
   }
 }
 
-function dragToRect(start: { x: number, y: number }, current: { x: number, y: number }): Rect {
+function dragToRect(start: Point, current: Point): Rect {
   return {
     x: Math.min(start.x, current.x),
     y: Math.min(start.y, current.y),
     width: Math.abs(current.x - start.x),
     height: Math.abs(current.y - start.y)
   }
+}
+
+// Measured in canvas pixels, so a threshold stays visually constant whatever the map's aspect ratio.
+function canvasDistance(a: Point, b: Point): number {
+  const canvas = canvasEl.value
+  if (!canvas) {
+    return Number.POSITIVE_INFINITY
+  }
+
+  return Math.hypot((a.x - b.x) * canvas.width, (a.y - b.y) * canvas.height)
+}
+
+function closeThreshold(): number {
+  return CLOSE_DISTANCE_PX / props.view.scale
+}
+
+// A free-form area only counts as closed once the drag has left the starting point and come back onto it.
+// `at` defaults to the last sampled point, which is what the live highlight follows; on release the actual
+// release position is passed instead, since sampling can trail the pointer by a few pixels.
+function canClosePath(at?: Point): boolean {
+  const points = freeformPoints.value
+  const start = points[0]
+  const end = at ?? points[points.length - 1]
+  if (!start || !end || points.length < MIN_AREA_POINTS || !freeformLeftStart.value) {
+    return false
+  }
+
+  return canvasDistance(start, end) <= closeThreshold()
 }
 
 function onPointerDown(event: PointerEvent): void {
@@ -242,8 +354,17 @@ function onPointerDown(event: PointerEvent): void {
   }
 
   canvasEl.value?.setPointerCapture(event.pointerId)
-  dragStart.value = pointerToUnit(event)
-  dragCurrent.value = dragStart.value
+  const point = pointerToUnit(event)
+
+  if (props.selectionMode === 'freeform') {
+    freeformPoints.value = [point]
+    freeformLeftStart.value = false
+    draw()
+    return
+  }
+
+  dragStart.value = point
+  dragCurrent.value = point
 }
 
 function onPointerMove(event: PointerEvent): void {
@@ -260,6 +381,11 @@ function onPointerMove(event: PointerEvent): void {
     return
   }
 
+  if (props.selectionMode === 'freeform') {
+    trackFreeform(event)
+    return
+  }
+
   if (!dragStart.value) {
     return
   }
@@ -268,7 +394,28 @@ function onPointerMove(event: PointerEvent): void {
   draw()
 }
 
-function onPointerUp(): void {
+function trackFreeform(event: PointerEvent): void {
+  const points = freeformPoints.value
+  const start = points[0]
+  const last = points[points.length - 1]
+  if (!start || !last) {
+    return
+  }
+
+  const point = pointerToUnit(event)
+  if (canvasDistance(last, point) < SAMPLE_DISTANCE_PX / props.view.scale) {
+    return
+  }
+
+  freeformPoints.value = [...points, point]
+  if (canvasDistance(start, point) > closeThreshold() * LEFT_START_FACTOR) {
+    freeformLeftStart.value = true
+  }
+
+  draw()
+}
+
+function onPointerUp(event: PointerEvent): void {
   if (!props.interactive) {
     return
   }
@@ -278,18 +425,38 @@ function onPointerUp(): void {
     return
   }
 
+  if (props.selectionMode === 'freeform') {
+    // Releasing anywhere but back on the start point discards the path rather than guessing how it closes.
+    const area = freeformPoints.value
+    const confirmed = canClosePath(pointerToUnit(event)) && areaSize(area) > MIN_REVEAL_SIZE
+    cancelDrag()
+
+    if (confirmed) {
+      emit('reveal', area)
+    }
+
+    return
+  }
+
   if (!dragStart.value || !dragCurrent.value) {
     return
   }
 
   const rect = dragToRect(dragStart.value, dragCurrent.value)
-  dragStart.value = null
-  dragCurrent.value = null
-  draw()
+  cancelDrag()
 
   if (rect.width > 0.01 && rect.height > 0.01) {
-    emit('reveal', rect)
+    emit('reveal', rectToArea(rect))
   }
+}
+
+function onPointerCancel(): void {
+  if (!props.interactive) {
+    return
+  }
+
+  panOrigin.value = null
+  cancelDrag()
 }
 </script>
 
@@ -306,11 +473,12 @@ function onPointerUp(): void {
     >
     <canvas
       ref="canvasEl"
-      class="absolute inset-0 h-full w-full"
+      class="absolute inset-0 h-full w-full touch-none"
       :class="cursorClass"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
+      @pointercancel="onPointerCancel"
     />
   </div>
 </template>
