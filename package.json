@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.17.0",
+    "@types/node": "^26.5.0",
     "@types/sortablejs": "^1.15.8",
     "eslint": "^10.8.1",
     "typescript": "^6.0.3",
