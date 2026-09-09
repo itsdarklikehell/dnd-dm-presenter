@@ -1,4 +1,4 @@
-import type { FogSelectionMode, LocationFogState, LocationView, Point, Rect, RevealArea } from '~/types/locationDisplay'
+import type { FogSelectionMode, LocationFogState, LocationView, Point, RevealArea } from '~/types/locationDisplay'
 
 const LOCATION_DISPLAY_KEY = 'dm-presenter:location-display'
 
@@ -137,21 +137,14 @@ function normalizeFogRecord(stored: Record<string, unknown>): Record<string, Loc
   return fog
 }
 
-// Records written before free-form fog stored `revealedRects`; those become plain four-point areas.
 function normalizeFogState(value: unknown): LocationFogState | null {
   if (!isRecord(value) || typeof value.fogEnabled !== 'boolean') {
     return null
   }
 
-  if (Array.isArray(value.revealedAreas) && value.revealedAreas.every(isRevealArea)) {
-    return { fogEnabled: value.fogEnabled, revealedAreas: value.revealedAreas }
-  }
+  const areas = Array.isArray(value.revealedAreas) && value.revealedAreas.every(isRevealArea) ? value.revealedAreas : []
 
-  if (Array.isArray(value.revealedRects) && value.revealedRects.every(isRect)) {
-    return { fogEnabled: value.fogEnabled, revealedAreas: value.revealedRects.map(rectToArea) }
-  }
-
-  return { fogEnabled: value.fogEnabled, revealedAreas: [] }
+  return { fogEnabled: value.fogEnabled, revealedAreas: areas }
 }
 
 function isSelectionMode(value: unknown): value is FogSelectionMode {
@@ -173,12 +166,4 @@ function isPoint(value: unknown): value is Point {
   return isRecord(value)
     && typeof value.x === 'number'
     && typeof value.y === 'number'
-}
-
-function isRect(value: unknown): value is Rect {
-  return isRecord(value)
-    && typeof value.x === 'number'
-    && typeof value.y === 'number'
-    && typeof value.width === 'number'
-    && typeof value.height === 'number'
 }
