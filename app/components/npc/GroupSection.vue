@@ -188,10 +188,10 @@ function pointsClass(value: number): string {
 
             <USwitch
               :model-value="!isFlagSet(npc.id, 'away')"
-              :label="isFlagSet(npc.id, 'away') ? 'Away' : 'Present'"
+              :label="isFlagSet(npc.id, 'away') ? 'Hidden' : 'Shown'"
               :ui="{ label: 'w-16' }"
               size="sm"
-              :aria-label="`Toggle whether ${npc.name} is present`"
+              :aria-label="`Toggle whether ${npc.name} is shown to players`"
               @update:model-value="toggleFlag(npc.id, 'away')"
             />
           </div>

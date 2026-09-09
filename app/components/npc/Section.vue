@@ -245,7 +245,7 @@ function confirmReset(): void {
                   :icon="everyoneAway ? 'i-lucide-user-check' : 'i-lucide-user-x'"
                   @click="toggleAwayForAll(npcIds)"
                 >
-                  {{ everyoneAway ? 'Bring everyone back' : 'Send everyone away' }}
+                  {{ everyoneAway ? 'Show all NPCs' : 'Hide all NPCs' }}
                 </UButton>
               </div>
             </th>
