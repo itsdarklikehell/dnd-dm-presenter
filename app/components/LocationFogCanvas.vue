@@ -22,9 +22,17 @@ const emit = defineEmits<{
 const MAX_SCALE = 8
 const ZOOM_SENSITIVITY = 0.0015
 
-// Screen-space distances; divided by `view.scale` before use, since the canvas is scaled by the view transform.
+// The backing store is rendered at this many device pixels per CSS pixel, so strokes stay sharp while the
+// wrapper is zoomed. Capped so an 8x zoom on a wide map doesn't allocate a canvas the GPU refuses.
+const MAX_CANVAS_DIMENSION = 4096
+const RESOLUTION_STEP = 0.25
+
+// Screen-space distances; run through `toCanvasPx` before use, since the canvas has its own pixel density
+// and is then scaled by the view transform.
 const CLOSE_DISTANCE_PX = 18
 const SAMPLE_DISTANCE_PX = 3
+const STROKE_WIDTH_PX = 2
+const DASH_PX = [6, 4]
 const LEFT_START_FACTOR = 1.5
 
 const MIN_AREA_POINTS = 3
@@ -36,6 +44,7 @@ const wrapperEl = ref<HTMLElement | null>(null)
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const aspectRatio = ref(1)
 const displaySize = ref({ width: 0, height: 0 })
+const resolution = ref(1)
 const dragStart = ref<Point | null>(null)
 const dragCurrent = ref<Point | null>(null)
 const freeformPoints = ref<Point[]>([])
@@ -121,11 +130,9 @@ function draw(): void {
 }
 
 function drawPendingSelection(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
-  const lineWidth = 2 / props.view.scale
-
   ctx.strokeStyle = 'white'
-  ctx.lineWidth = lineWidth
-  ctx.setLineDash([6, 4])
+  ctx.lineWidth = toCanvasPx(STROKE_WIDTH_PX)
+  ctx.setLineDash(DASH_PX.map(toCanvasPx))
 
   if (props.selectionMode === 'freeform') {
     const start = freeformPoints.value[0]
@@ -179,12 +186,30 @@ function resizeCanvas(): void {
     ? { width: containerWidth, height: containerWidth / aspectRatio.value }
     : { width: containerHeight * aspectRatio.value, height: containerHeight }
 
-  canvas.width = displaySize.value.width
-  canvas.height = displaySize.value.height
+  resolution.value = renderResolution()
+  canvas.width = Math.round(displaySize.value.width * resolution.value)
+  canvas.height = Math.round(displaySize.value.height * resolution.value)
   draw()
 }
 
+// Enough device pixels to cover the current zoom, bounded by what a canvas can reasonably hold. Quantised so a
+// continuous wheel zoom re-allocates the backing store a handful of times rather than on every tick.
+function renderResolution(): number {
+  const wanted = Math.ceil((window.devicePixelRatio || 1) * props.view.scale / RESOLUTION_STEP) * RESOLUTION_STEP
+  const longestSide = Math.max(displaySize.value.width, displaySize.value.height, 1)
+
+  return Math.max(1, Math.min(wanted, MAX_CANVAS_DIMENSION / longestSide))
+}
+
+// One backing pixel covers `view.scale / resolution` screen pixels, so a screen-space size divides back out.
+function toCanvasPx(screenPx: number): number {
+  return screenPx * resolution.value / props.view.scale
+}
+
 watch([() => props.fogEnabled, () => props.revealedAreas, () => props.mode], draw, { deep: true })
+
+// Zooming changes how many device pixels the canvas needs, so the backing store is re-allocated, not just redrawn.
+watch(() => props.view.scale, resizeCanvas)
 
 let resizeObserver: ResizeObserver | null = null
 
@@ -321,7 +346,7 @@ function canvasDistance(a: Point, b: Point): number {
 }
 
 function closeThreshold(): number {
-  return CLOSE_DISTANCE_PX / props.view.scale
+  return toCanvasPx(CLOSE_DISTANCE_PX)
 }
 
 // A free-form area only counts as closed once the drag has left the starting point and come back onto it.
@@ -403,7 +428,7 @@ function trackFreeform(event: PointerEvent): void {
   }
 
   const point = pointerToUnit(event)
-  if (canvasDistance(last, point) < SAMPLE_DISTANCE_PX / props.view.scale) {
+  if (canvasDistance(last, point) < toCanvasPx(SAMPLE_DISTANCE_PX)) {
     return
   }
 
