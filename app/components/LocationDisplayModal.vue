@@ -98,34 +98,6 @@ function onViewChange(next: LocationView): void {
       >
         <div class="flex flex-col gap-2">
           <div class="flex flex-wrap items-center gap-2">
-            <UButton
-              color="neutral"
-              variant="subtle"
-              icon="i-lucide-cloud-fog"
-              @click="onAddFog(location.id)"
-            >
-              Cover with fog of war
-            </UButton>
-
-            <UButton
-              color="neutral"
-              variant="subtle"
-              icon="i-lucide-cloud-sun"
-              @click="onClearFog(location.id)"
-            >
-              Clear fog of war
-            </UButton>
-
-            <UButton
-              color="neutral"
-              variant="subtle"
-              icon="i-lucide-undo-2"
-              :disabled="!fogState.revealedAreas.length"
-              @click="onUndo(location.id)"
-            >
-              Undo reveal
-            </UButton>
-
             <UFieldGroup>
               <UTooltip text="Reveal squares">
                 <UButton
@@ -147,6 +119,35 @@ function onViewChange(next: LocationView): void {
                 />
               </UTooltip>
             </UFieldGroup>
+
+            <UButton
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-undo-2"
+              title="Undo reveal"
+              :disabled="!fogState.revealedAreas.length"
+              @click="onUndo(location.id)"
+            ></UButton>
+
+            <UButton
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-cloud-fog"
+              @click="onAddFog(location.id)"
+              title="Cover with fog of war"
+            >
+              Cover
+            </UButton>
+
+            <UButton
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-cloud-sun"
+              @click="onClearFog(location.id)"
+              title="Clear fog of war"
+            >
+              Clear
+            </UButton>
           </div>
 
           <span class="text-xs text-neutral-500">
