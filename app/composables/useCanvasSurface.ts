@@ -61,10 +61,9 @@ export function useCanvasSurface(options: CanvasSurfaceOptions): CanvasSurface {
     }
   }
 
-  function resize(): void {
-    const canvas = options.canvas.value
+  function fitToContainer(): void {
     const container = options.container()
-    if (!canvas || !container) {
+    if (!container) {
       return
     }
 
@@ -79,11 +78,29 @@ export function useCanvasSurface(options: CanvasSurfaceOptions): CanvasSurface {
       ? { width: containerWidth, height: containerWidth / aspectRatio.value }
       : { width: containerHeight * aspectRatio.value, height: containerHeight }
 
-    resolution.value = renderResolution()
-    canvas.width = Math.round(displaySize.value.width * resolution.value)
-    canvas.height = Math.round(displaySize.value.height * resolution.value)
+    applyResolution()
+  }
 
-    // Resizing the backing store wipes it, so the redraw can't wait for a watcher to flush.
+  // Deliberately separate from `fitToContainer`: the wrapper is sized to `displaySize`, so the container it's
+  // measured against is also sized by it. Re-deriving `displaySize` on zoom would feed that loop once per wheel
+  // tick and walk the canvas down to nothing. Zoom only ever changes how many device pixels back the same box.
+  function applyResolution(): void {
+    const canvas = options.canvas.value
+    if (!canvas) {
+      return
+    }
+
+    resolution.value = renderResolution()
+
+    const width = Math.round(displaySize.value.width * resolution.value)
+    const height = Math.round(displaySize.value.height * resolution.value)
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width
+      canvas.height = height
+    }
+
+    // Resizing the backing store wipes it, and strokes are sized off the zoom, so the redraw can't wait for a
+    // watcher to flush.
     options.redraw()
   }
 
@@ -100,25 +117,24 @@ export function useCanvasSurface(options: CanvasSurfaceOptions): CanvasSurface {
     const img = new Image()
     img.onload = () => {
       aspectRatio.value = img.naturalWidth / img.naturalHeight || 1
-      resize()
+      fitToContainer()
     }
     img.src = src
   }, { immediate: true })
 
-  // Zooming changes how many device pixels the canvas needs, so the backing store is re-allocated, not just redrawn.
-  watch(options.scale, resize)
+  watch(options.scale, applyResolution)
 
   let resizeObserver: ResizeObserver | null = null
 
   onMounted(() => {
-    resizeObserver = new ResizeObserver(resize)
+    resizeObserver = new ResizeObserver(fitToContainer)
 
     const container = options.container()
     if (container) {
       resizeObserver.observe(container)
     }
 
-    resize()
+    fitToContainer()
   })
 
   onBeforeUnmount(() => resizeObserver?.disconnect())
