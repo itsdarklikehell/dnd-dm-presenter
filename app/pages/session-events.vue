@@ -305,7 +305,7 @@ function confirmRemoveRow(): void {
       </template>
     </UModal>
 
-    <ManageGroupsModal
+    <SessionEventsManageGroupsModal
       v-model:open="manageGroupsOpen"
       :groups="groups"
       @save="onSaveGroups"
