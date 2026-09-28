@@ -8,7 +8,7 @@ export const useNpcsStore = defineStore('npcs', () => {
   const npcs = ref<Npc[]>([])
 
   function addNpc(input: Omit<Npc, 'id' | 'away' | 'introduced' | 'seen'>): void {
-    npcs.value = [...npcs.value, { ...input, id: uniqueId(input.name, npcs.value), away: true, introduced: false, seen: false }]
+    npcs.value = [...npcs.value, { ...input, id: uniqueId(input.name, npcs.value), away: true, introduced: false, seen: true }]
   }
 
   function updateNpc(id: string, patch: Partial<Omit<Npc, 'id'>>): void {
@@ -83,7 +83,7 @@ export const useNpcsStore = defineStore('npcs', () => {
           return { npcs: [] }
         }
 
-        return { npcs: parsed.map(npc => ({ away: false, introduced: false, seen: false, ...npc })) }
+        return { npcs: parsed.map(npc => ({ away: false, introduced: false, seen: true, ...npc })) }
       }
     }
   }
