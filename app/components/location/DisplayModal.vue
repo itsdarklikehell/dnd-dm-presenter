@@ -10,7 +10,7 @@ const emit = defineEmits<{
 
 const locationDisplayStore = useLocationDisplayStore()
 const { selectionMode } = storeToRefs(locationDisplayStore)
-const { getFogState, getView, setView, addFog, clearFog, revealArea, undoReveal, setSelectionMode } = locationDisplayStore
+const { isActive, showLocation, hideLocation, getFogState, getView, setView, addFog, clearFog, revealArea, undoReveal, setSelectionMode } = locationDisplayStore
 
 const { removeLocation } = useLocationsStore()
 
@@ -74,6 +74,16 @@ function onDelete(): void {
   }
 
   emit('close')
+}
+
+function onToggleDisplay(id: string): void {
+  if (isActive(id)) {
+    hideLocation()
+  } else {
+    showLocation(id)
+  }
+
+  focusStage()
 }
 
 function onViewChange(next: LocationView): void {
@@ -147,6 +157,18 @@ function onViewChange(next: LocationView): void {
               title="Clear fog of war"
             >
               Clear
+            </UButton>
+
+            <UButton
+              class="ml-auto"
+              :color="isActive(location.id) ? 'primary' : 'neutral'"
+              :variant="isActive(location.id) ? 'solid' : 'subtle'"
+              :icon="isActive(location.id) ? 'i-lucide-eye' : 'i-lucide-eye-off'"
+              :title="isActive(location.id) ? 'Hide from the display' : 'Show on the display'"
+              :aria-pressed="isActive(location.id)"
+              @click="onToggleDisplay(location.id)"
+            >
+              {{ isActive(location.id) ? 'Shown' : 'Hidden' }}
             </UButton>
           </div>
 
