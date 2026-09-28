@@ -21,7 +21,7 @@ export default defineNuxtConfig({
 
   nitro: {
     prerender: {
-      routes: ['/', '/admin', '/session-events', '/present']
+      routes: ['/', '/admin', '/present']
     }
   },
 

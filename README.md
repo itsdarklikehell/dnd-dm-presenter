@@ -20,11 +20,6 @@ Points can be used for admiration, kudos, loans, gambles etc.
 
 It is not shared across machines or browsers.
 
-## Session Events
-
-The `/session-events` page tracks what happens round by round. **Add row** creates a row with an editable title
-(defaults to `Round N`) and a description of what's happening. Drag names from **Unassigned** into a group, or
-
 ## Players
 
 The `/admin` page manages the players used across every other page: add, edit, and remove players (name).

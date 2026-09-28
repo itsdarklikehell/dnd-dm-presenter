@@ -28,7 +28,6 @@ No test suite exists in this repo. Always run `pnpm lint` and `pnpm typecheck` a
 
 - `/` (`index.vue`) — grid of NPCs (rows) × players (columns) tracking points per NPC/player pair. Drives NPC
   away/introduced flags, which the `/present` tab reflects live.
-- `/session-events` — round-by-round event log; names can be dragged from "Unassigned" into groups.
 - `/admin` — manage players (name only).
 - `/present` — full-screen, cross-window display of NPCs currently not "away"; reads the same localStorage state as
   `/`, so toggling flags on `/` updates `/present` live even in a separate window.
