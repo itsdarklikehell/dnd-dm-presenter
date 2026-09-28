@@ -192,14 +192,11 @@ function onAiImageAccepted(generated: GeneratedNpcImage): void {
           label="Image"
         >
           <div class="flex items-center gap-3">
-            <StoredImage
-              :image="form.image"
-              class="size-12 rounded object-cover"
-            />
             <UFileUpload
               accept="image/*"
               label="Choose image"
-              class="flex-1"
+              class="size-50 shrink-0"
+              :ui="{ fileLeadingAvatar: '[&>img]:object-contain' }"
               @update:model-value="onImageFileChange"
             />
             <UButton

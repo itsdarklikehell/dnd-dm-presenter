@@ -83,7 +83,8 @@ function save(): void {
             <UFileUpload
               accept="image/*"
               label="Choose image"
-              class="flex-1"
+              class="size-50 shrink-0"
+              :ui="{ fileLeadingAvatar: '[&>img]:object-contain' }"
               @update:model-value="onImageFileChange"
             />
           </div>
