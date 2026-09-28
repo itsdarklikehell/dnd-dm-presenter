@@ -92,9 +92,8 @@ function confirmRemovePlayer(): void {
             v-if="!players.length"
             class="p-6 text-center text-sm text-muted"
           >
-            No players yet.
+            No players yet. Add them to track points per NPC.
           </div>
-
           <ul
             v-else
             class="divide-y divide-default"
