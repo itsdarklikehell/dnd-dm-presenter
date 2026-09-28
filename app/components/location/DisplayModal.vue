@@ -176,7 +176,7 @@ function onViewChange(next: LocationView): void {
             {{ selectionHint }} &middot; scroll to zoom
 
             <template v-if="view.scale > 1">
-              &middot; <span class="text-highlighted">hold space to drag</span>
+              &middot; hold space to drag
             </template>
           </span>
         </div>
