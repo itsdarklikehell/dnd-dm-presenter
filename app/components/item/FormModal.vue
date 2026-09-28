@@ -10,8 +10,12 @@ const form = reactive({ name: '', image: '' })
 
 const confirmingDelete = ref(false)
 
+const zoomed = ref(false)
+const fullImage = useImageSource(() => form.image)
+
 watch(open, (isOpen) => {
   confirmingDelete.value = false
+  zoomed.value = false
 
   if (!isOpen) {
     return
@@ -76,10 +80,33 @@ function save(): void {
 
         <UFormField label="Image">
           <div class="flex items-center gap-3">
-            <StoredImage
-              :image="form.image"
-              class="size-12 rounded object-cover"
-            />
+            <button
+              type="button"
+              class="shrink-0 cursor-zoom-in rounded disabled:cursor-default"
+              :disabled="!form.image"
+              :aria-label="`Show the full-size image of ${form.name || 'this item'}`"
+              @click="zoomed = true"
+            >
+              <StoredImage
+                :image="form.image"
+                :alt="form.name"
+                class="size-50 rounded object-contain"
+              />
+            </button>
+
+            <UModal
+              v-model:open="zoomed"
+              :title="form.name || 'Item'"
+              :ui="{ content: 'sm:max-w-4xl', body: 'flex justify-center' }"
+            >
+              <template #body>
+                <img
+                  :src="fullImage"
+                  :alt="form.name"
+                  class="max-h-[80vh] w-auto object-contain"
+                >
+              </template>
+            </UModal>
             <UFileUpload
               accept="image/*"
               label="Choose image"
