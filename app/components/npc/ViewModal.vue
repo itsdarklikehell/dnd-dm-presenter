@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import type { Npc } from '~/types/npc'
 
-defineProps<{ npc: Npc | null }>()
+const props = defineProps<{ npc: Npc | null }>()
 
 const emit = defineEmits<{
   close: []
   edit: [npc: Npc]
   delete: [npc: Npc]
 }>()
+
+const zoomed = ref(false)
+const fullImage = useImageSource(() => props.npc?.image ?? '')
+
+watch(() => props.npc, () => {
+  zoomed.value = false
+})
 </script>
 
 <template>
@@ -23,12 +30,34 @@ const emit = defineEmits<{
         class="flex flex-col gap-4"
       >
         <div class="flex items-start gap-4">
-          <StoredAvatar
-            :image="npc.image"
-            :alt="npc.name"
-            size="3xl"
-            class="shrink-0"
-          />
+          <button
+            type="button"
+            class="shrink-0 cursor-zoom-in rounded-full disabled:cursor-default"
+            :disabled="!npc.image"
+            :aria-label="`Show the full-size portrait of ${npc.name}`"
+            @click="zoomed = true"
+          >
+            <StoredAvatar
+              :image="npc.image"
+              :alt="npc.name"
+              size="3xl"
+              :ui="{ root: 'size-50' }"
+            />
+          </button>
+
+          <UModal
+            v-model:open="zoomed"
+            :title="npc.name"
+            :ui="{ content: 'sm:max-w-4xl', body: 'flex justify-center' }"
+          >
+            <template #body>
+              <img
+                :src="fullImage"
+                :alt="npc.name"
+                class="max-h-[80vh] w-auto object-contain"
+              >
+            </template>
+          </UModal>
           <div class="flex flex-col gap-2">
             <div
               v-if="npc.species || npc.gender || npc.age || npc.role"
